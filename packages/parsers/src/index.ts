@@ -2,7 +2,7 @@ import type { NetworkId } from "@phantom/constants";
 import { base64urlEncode } from "@phantom/base64url";
 import { getTransactionEncoder, type Transaction } from "@solana/transactions";
 import { Buffer } from "buffer";
-import { Transaction as EthersTransaction, getAddress } from "ethers";
+import { Address, TransactionEnvelopeEip1559, TransactionEnvelopeLegacy } from "ox";
 
 // Re-export response parsers
 export {
@@ -160,15 +160,30 @@ function parseEVMTransactionToHex(transaction: any): ParsedTransaction {
       // Normalize addresses to proper checksum format
       if (txForSerialization.to && typeof txForSerialization.to === "string") {
         try {
-          txForSerialization.to = getAddress(txForSerialization.to);
+          txForSerialization.to = Address.from(txForSerialization.to);
         } catch {
           // If checksum validation fails, lowercase the address
           txForSerialization.to = txForSerialization.to.toLowerCase();
         }
       }
 
-      // Serialize the transaction (RLP encode)
-      const serialized = EthersTransaction.from(txForSerialization).unsignedSerialized;
+      // Serialize the transaction (RLP encode) using ox
+      // Detect transaction type based on fields present
+      let serialized: string;
+      if (txForSerialization.maxFeePerGas !== undefined || txForSerialization.maxPriorityFeePerGas !== undefined) {
+        // EIP-1559 transaction - chainId is required, default to mainnet (1)
+        const eip1559Tx = {
+          ...txForSerialization,
+          chainId: (txForSerialization.chainId ?? 1) as number,
+        } as Parameters<typeof TransactionEnvelopeEip1559.from>[0];
+        const envelope = TransactionEnvelopeEip1559.from(eip1559Tx);
+        serialized = TransactionEnvelopeEip1559.serialize(envelope);
+      } else {
+        // Legacy transaction
+        const legacyTx = txForSerialization as Parameters<typeof TransactionEnvelopeLegacy.from>[0];
+        const envelope = TransactionEnvelopeLegacy.from(legacyTx);
+        serialized = TransactionEnvelopeLegacy.serialize(envelope);
+      }
       const hex = serialized.startsWith("0x") ? serialized : "0x" + serialized;
 
       return {
