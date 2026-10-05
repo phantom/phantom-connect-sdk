@@ -30,3 +30,21 @@ export const Cli = {
 };
 
 export const middleware = {};
+
+class IncurError extends Error {
+  readonly code: string;
+  readonly retryable: boolean;
+  declare readonly cause?: Error;
+
+  constructor(options: { code: string; message: string; retryable?: boolean; cause?: Error }) {
+    super(options.message);
+    this.name = "Incur.IncurError";
+    this.code = options.code;
+    this.retryable = options.retryable ?? false;
+    if (options.cause) {
+      this.cause = options.cause;
+    }
+  }
+}
+
+export const Errors = { IncurError };

@@ -126,6 +126,81 @@ describe("SessionManager", () => {
     expect(SessionStorage).toHaveBeenCalledWith(undefined);
   });
 
+  describe("getLocalSession()", () => {
+    it("reads stored metadata without initializing or changing session state", () => {
+      const session = createDeviceCodeSession();
+      mockStorage.load.mockReturnValue(session);
+      mockStorage.isExpired.mockReturnValue(false);
+      const manager = new SessionManager();
+
+      expect(manager.getLocalSession()).toEqual({
+        walletId: session.walletId,
+        organizationId: session.organizationId,
+      });
+      expect(manager.isInitialized()).toBe(false);
+      expect(() => manager.getSession()).toThrow();
+      expect(() => manager.getClient()).toThrow();
+      expect(PhantomClient).not.toHaveBeenCalled();
+      expect(Auth2Stamper).not.toHaveBeenCalled();
+      expect(ApiKeyStamper).not.toHaveBeenCalled();
+      expect(mockOAuthFlow.authenticate).not.toHaveBeenCalled();
+      expect(mockDeviceCodeAuthProvider.authenticate).not.toHaveBeenCalled();
+      expect(mockStorage.save).not.toHaveBeenCalled();
+      expect(mockStorage.delete).not.toHaveBeenCalled();
+      expect(mockStorage.deleteStrict).not.toHaveBeenCalled();
+    });
+
+    it("observes a session saved after an earlier empty local read", () => {
+      const session = createSsoSession();
+      mockStorage.load.mockReturnValueOnce(null).mockReturnValueOnce(session);
+      mockStorage.isExpired.mockReturnValue(false);
+      const manager = new SessionManager();
+
+      expect(manager.getLocalSession()).toBeNull();
+      expect(manager.getLocalSession()).toEqual({
+        walletId: session.walletId,
+        organizationId: session.organizationId,
+      });
+      expect(manager.isInitialized()).toBe(false);
+    });
+
+    it("does not report expired local sessions or delete them", () => {
+      mockStorage.load.mockReturnValue(createSsoSession());
+      mockStorage.isExpired.mockReturnValue(true);
+      const manager = new SessionManager();
+
+      expect(manager.getLocalSession()).toBeNull();
+      expect(manager.isInitialized()).toBe(false);
+      expect(mockStorage.delete).not.toHaveBeenCalled();
+      expect(mockStorage.deleteStrict).not.toHaveBeenCalled();
+      expect(mockDeviceCodeAuthProvider.authenticate).not.toHaveBeenCalled();
+      expect(mockOAuthFlow.authenticate).not.toHaveBeenCalled();
+    });
+
+    it("reports the initialized session without reloading or validating it", async () => {
+      const session = createSsoSession();
+      mockStorage.load.mockReturnValue(session);
+      mockStorage.isExpired.mockReturnValue(false);
+      const manager = new SessionManager();
+      await manager.initialize();
+      const client = manager.getClient();
+      jest.clearAllMocks();
+      mockStorage.load.mockReturnValue(createDeviceCodeSession());
+
+      expect(manager.getLocalSession()).toEqual({
+        walletId: session.walletId,
+        organizationId: session.organizationId,
+      });
+      expect(manager.isInitialized()).toBe(true);
+      expect(manager.getSession()).toBe(session);
+      expect(manager.getClient()).toBe(client);
+      expect(mockStorage.load).not.toHaveBeenCalled();
+      expect(client.getWalletAddresses).not.toHaveBeenCalled();
+      expect(PhantomClient).not.toHaveBeenCalled();
+      expect(mockStorage.save).not.toHaveBeenCalled();
+    });
+  });
+
   it("loads and uses an existing SSO session", async () => {
     const session = createSsoSession();
     mockStorage.load.mockReturnValue(session);

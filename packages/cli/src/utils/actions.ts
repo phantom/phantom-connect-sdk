@@ -1,8 +1,18 @@
-import { z } from "incur";
+import { z, type MiddlewareHandler } from "incur";
+import { ANALYTICS_HEADERS } from "@phantom/constants";
 import { varsSchema } from "../vars";
 import { PaymentRequiredSchema, RateLimitedSchema, wrapWithPaymentHandling } from "./payment";
 import type { PaymentRequiredResult, RateLimitedResult } from "./payment";
 import type { ToolAnnotations, ToolHandler, ToolInputSchema } from "../tools/types";
+
+const STATIC_HEADERS: Record<string, string> = {
+  [ANALYTICS_HEADERS.PLATFORM]: "ext-sdk",
+  [ANALYTICS_HEADERS.CLIENT]: "mcp",
+  [ANALYTICS_HEADERS.SDK_VERSION]: process.env["PHANTOM_VERSION"] ?? "0.0.1",
+  // Signal to the backend that this client supports all order types (limit, TP, SL).
+  // "0.0.0-dev" is treated as always-eligible by isClientVersionEligible().
+  "x-phantom-version": "0.0.0-dev",
+};
 
 /**
  * Defines a Phantom CLI action that is automatically exposed as both an `incur` CLI command
@@ -101,12 +111,14 @@ export function createAction<
   options,
   output,
   mcp,
+  requiresAuth = true,
   run,
 }: {
   description: description;
   options: options;
   output: output;
   mcp: mcp;
+  requiresAuth?: boolean;
   run: (args: {
     options: z.output<options>;
     var: z.output<typeof varsSchema>;
@@ -140,12 +152,32 @@ export function createAction<
     return execute();
   };
 
+  const middleware: MiddlewareHandler<typeof varsSchema> = async (c, next) => {
+    if (requiresAuth && !c.var.manager.isInitialized()) {
+      await c.var.manager.initialize();
+    }
+
+    const sessionAppId = c.var.manager.isInitialized() ? c.var.manager.getSession().appId : undefined;
+    const appId = process.env["PHANTOM_APP_ID"] ?? process.env["PHANTOM_CLIENT_ID"] ?? sessionAppId;
+
+    c.var.apiClient.setHeaders({
+      ...STATIC_HEADERS,
+      ...(appId && {
+        [ANALYTICS_HEADERS.APP_ID]: appId,
+        "x-api-key": appId,
+      }),
+    });
+
+    await next();
+  };
+
   const command = {
     description,
     vars: varsSchema,
     options,
     output: z.union([output, PaymentRequiredSchema, RateLimitedSchema]),
     mcp,
+    middleware: [middleware],
     run: wrappedRun,
   };
 

@@ -1,6 +1,6 @@
 {
   "name": "@phantom/chain-interfaces",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Shared chain interfaces for Phantom SDK",
   "types": "dist/index.d.ts",
   "exports": {

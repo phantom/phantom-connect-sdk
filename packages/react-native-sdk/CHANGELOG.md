@@ -1,5 +1,20 @@
 # @phantom/react-native-sdk
 
+## 2.0.4
+
+### Patch Changes
+
+- Updated dependencies [7513400]
+  - @phantom/constants@2.0.4
+  - @phantom/client@2.0.4
+  - @phantom/base64url@2.0.4
+  - @phantom/sdk-types@2.0.4
+  - @phantom/chain-interfaces@2.0.4
+  - @phantom/crypto@2.0.4
+  - @phantom/api-key-stamper@2.0.4
+  - @phantom/embedded-provider-core@2.0.4
+  - @phantom/wallet-sdk-ui@2.0.4
+
 ## 2.0.3
 
 ### Patch Changes

@@ -1,5 +1,29 @@
 # @phantom/cli
 
+## 3.0.0
+
+### Major Changes
+
+- 8652e8d: Keep wallet status local without authentication or network requests. Report cached wallet and organization metadata without claiming that the server accepts the session. Custom `ISessionManager` implementations must add the side-effect-free `getLocalSession` method, which returns only wallet and organization identifiers or null.
+
+  Limit client registration requests to 30 seconds and preserve safe HTTP status, Ray ID, and Retry-After metadata in errors. Do not expose response bodies or credentials, and do not retry automatically.
+
+  Initialize the OpenClaw tool context session manager before running wallet handlers.
+
+### Patch Changes
+
+- 2b0391d: Mark Arbitrum One and Arbitrum Sepolia as unsupported for sending transactions. `transfer_tokens`, `send_evm_transaction`, `buy_token`, and `deposit_to_hyperliquid` now reject Arbitrum with a clear error before simulating, quoting, or signing, and tool descriptions no longer list Arbitrum as a supported network.
+- 7513400: Add Robinhood Chain mainnet and testnet identifiers, submission mappings, and default RPC URLs. Preserve Ethereum account derivation for EVM networks.
+- Updated dependencies [7513400]
+  - @phantom/constants@2.0.4
+  - @phantom/client@2.0.4
+  - @phantom/base64url@2.0.4
+  - @phantom/sdk-types@2.0.4
+  - @phantom/parsers@2.0.4
+  - @phantom/crypto@2.0.4
+  - @phantom/api-key-stamper@2.0.4
+  - @phantom/utils@2.0.4
+
 ## 2.0.1
 
 ### Patch Changes

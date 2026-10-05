@@ -25,7 +25,7 @@ const HYPERCORE_USDC_ADDRESS = "0x00000000000000000000000000000000";
 
 const DepositToHyperliquidSchema = z.object({
   sourceChainId: Caip2ChainIdSchema.describe(
-    'Source chain CAIP-2 ID. Examples: "solana:mainnet", "eip155:42161" (Arbitrum), "eip155:8453" (Base), "eip155:1" (Ethereum), "eip155:137" (Polygon).',
+    'Source chain CAIP-2 ID. Examples: "solana:mainnet", "eip155:8453" (Base), "eip155:1" (Ethereum), "eip155:137" (Polygon). Arbitrum ("eip155:42161") is not supported.',
   ),
   amount: z.string().describe('Amount to send in human-readable units (e.g. "100" for 100 USDC, "0.5" for 0.5 SOL).'),
   sellTokenMint: z
@@ -57,10 +57,11 @@ const DepositToHyperliquidSchema = z.object({
 
 const depositToHyperliquidAction = createAction({
   description:
-    "Bridges tokens from an external chain (Solana, Arbitrum, Base, Ethereum, Polygon) into " +
+    "Bridges tokens from an external chain (Solana, Base, Ethereum, Polygon) into " +
     "Hyperliquid as USDC via a cross-chain swap. " +
     "By default sells USDC on the source chain (or native SOL if sellTokenIsNative: true). " +
     "The bridge delivers USDC directly to your Hyperliquid perps account. " +
+    "Arbitrum is not supported as a source chain. " +
     "Use execute: false (default) to preview the quote first.",
   options: DepositToHyperliquidSchema,
   output: BuyTokenOutputSchema,

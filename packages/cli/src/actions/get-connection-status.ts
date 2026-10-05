@@ -22,15 +22,12 @@ const ConnectionStatusSchema = z.discriminatedUnion("connected", [
 
 const getConnectionStatusAction = createAction({
   description:
-    "Phantom Wallet — Returns the current Phantom embedded wallet connection status. " +
-    "Use this as a lightweight check before other operations to confirm the user is authenticated. " +
-    "Unlike get_wallet_addresses, this does NOT make an API call and cannot trigger re-authentication; " +
-    "it simply reports whether a local session exists. " +
+    "Returns locally stored Phantom wallet session metadata without authentication or network requests. " +
+    "Connected means a local session exists, not that the server has validated it. " +
     "Response when connected: {connected: true, walletId: string, organizationId: string, mcpServerVersion: string}. " +
     "Response when not connected: {connected: false, reason: string, mcpServerVersion: string}. " +
-    "If connected is false, call get_wallet_addresses to trigger the Phantom Connect browser sign-in flow. " +
-    "If connected is true but subsequent tool calls fail with AUTH_EXPIRED, the server-side session was revoked — " +
-    "any tool call will automatically re-trigger authentication.",
+    "Use login to authenticate when no local session exists.",
+  requiresAuth: false,
   options: z.object({}),
   output: ConnectionStatusSchema,
   mcp: {
@@ -46,15 +43,15 @@ const getConnectionStatusAction = createAction({
 
     logger.info("Checking connection status");
 
-    if (!context.manager.isInitialized()) {
+    const session = context.manager.getLocalSession();
+    if (!session) {
       return Promise.resolve({
         connected: false as const,
-        reason: "No active session found. Call get_wallet_addresses to authenticate.",
+        reason: "No active session found. Call login to authenticate.",
         mcpServerVersion: packageJson.version,
       });
     }
 
-    const session = context.manager.getSession();
     return Promise.resolve({
       connected: true as const,
       walletId: session.walletId,

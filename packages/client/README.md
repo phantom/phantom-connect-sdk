@@ -97,7 +97,9 @@ await client.signAndSendTransaction({
 
 ### Network Support
 
-The client supports multiple blockchain networks through CAIP-2 identifiers. For a complete list of supported networks including Solana, Ethereum, Polygon, Base, Arbitrum, Monad, and more, see the [Network Support section in the main README](../../README.md#network-support).
+The client supports multiple blockchain networks through CAIP-2 identifiers. For a complete list of configured networks including Solana, Ethereum, Polygon, Base, Arbitrum, Robinhood Chain, Monad, and more, see the [Network Support section in the main README](../../README.md#network-support).
+
+Robinhood Chain uses `eip155:4663` for mainnet and `eip155:46630` for testnet. Both use the Ethereum account derivation path. Network configuration does not establish that a wallet can submit transactions. Submission also requires service availability and wallet authorization.
 
 ```typescript
 import { NetworkId } from "@phantom/client";

@@ -1,3 +1,5 @@
+import { NetworkId } from "@phantom/constants";
+
 /**
  * RPC URL resolution utilities.
  * Single source of truth for default Solana and EVM RPC endpoints.
@@ -15,13 +17,15 @@ export const DEFAULT_SOLANA_RPC_URLS: Record<string, string> = {
 };
 
 export const DEFAULT_EVM_RPC_URLS: Record<string, string> = {
-  "eip155:1": "https://node-proxy.phantom.app/v1/chain/ethereum/network/mainnet",
-  "eip155:8453": "https://node-proxy.phantom.app/v1/chain/base/network/mainnet",
-  "eip155:11155111": "https://sepolia.drpc.org",
-  "eip155:84532": "https://sepolia.base.org",
-  "eip155:137": "https://node-proxy.phantom.app/v1/chain/polygon/network/mainnet",
-  "eip155:42161": "https://node-proxy.phantom.app/v1/chain/arbitrum/network/mainnet",
-  "eip155:143": "https://node-proxy.phantom.app/v1/chain/monad/network/mainnet",
+  [NetworkId.ETHEREUM_MAINNET]: "https://node-proxy.phantom.app/v1/chain/ethereum/network/mainnet",
+  [NetworkId.BASE_MAINNET]: "https://node-proxy.phantom.app/v1/chain/base/network/mainnet",
+  [NetworkId.ETHEREUM_SEPOLIA]: "https://sepolia.drpc.org",
+  [NetworkId.BASE_SEPOLIA]: "https://sepolia.base.org",
+  [NetworkId.POLYGON_MAINNET]: "https://node-proxy.phantom.app/v1/chain/polygon/network/mainnet",
+  [NetworkId.ARBITRUM_ONE]: "https://node-proxy.phantom.app/v1/chain/arbitrum/network/mainnet",
+  [NetworkId.MONAD_MAINNET]: "https://node-proxy.phantom.app/v1/chain/monad/network/mainnet",
+  [NetworkId.ROBINHOOD_MAINNET]: "https://node-proxy.phantom.app/v1/chain/robinhood/network/mainnet",
+  [NetworkId.ROBINHOOD_TESTNET]: "https://node-proxy.phantom.app/v1/chain/robinhood/network/testnet",
 };
 
 /**

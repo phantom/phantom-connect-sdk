@@ -43,6 +43,35 @@ export function normalizeNetworkId(networkId: string): string {
   }
 }
 
+const UNSUPPORTED_TRANSACTION_NETWORKS: ReadonlyMap<string, string> = new Map([
+  [NetworkId.ARBITRUM_ONE, "Arbitrum One"],
+  [NetworkId.ARBITRUM_SEPOLIA, "Arbitrum Sepolia"],
+]);
+
+/**
+ * EVM networks where the wallet can sign and submit transactions through these tools.
+ * Listed in error messages so callers can pick a working network.
+ */
+export const SUPPORTED_EVM_TRANSACTION_NETWORKS_HINT =
+  "eip155:1 (Ethereum), eip155:8453 (Base), eip155:137 (Polygon), eip155:143 (Monad)";
+
+/**
+ * Throws if the wallet cannot sign and submit transactions on `networkId`.
+ *
+ * Some networks are recognized for addresses and balances but have no end-to-end transaction
+ * submission support, so requests there would fail after signing. Rejecting them up front gives
+ * a clear error instead of a generic signing or submission failure.
+ */
+export function assertTransactionNetworkSupported(networkId: string): void {
+  const name = UNSUPPORTED_TRANSACTION_NETWORKS.get(networkId.toLowerCase());
+  if (name) {
+    throw new Error(
+      `${name} (${networkId}) is not supported for sending transactions. ` +
+        `Use a supported EVM network: ${SUPPORTED_EVM_TRANSACTION_NETWORKS_HINT}.`,
+    );
+  }
+}
+
 /**
  * Normalizes network IDs to the chain ID format expected by Phantom's swapper API.
  * Converts various Solana network identifier formats to the numeric chain ID format used by the quotes API.

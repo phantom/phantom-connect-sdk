@@ -7,11 +7,6 @@ jest.mock("@phantom/parsers", () => ({
   parseToKmsTransaction: jest.fn().mockResolvedValue({ parsed: "0xrlpencoded", originalFormat: "json" }),
 }));
 
-// Mock @phantom/constants
-jest.mock("@phantom/constants", () => ({
-  chainIdToNetworkId: jest.fn((id: number) => (id === 1 ? "eip155:1" : id === 8453 ? "eip155:8453" : undefined)),
-}));
-
 // Mock EVM utils
 jest.mock("../utils/evm", () => ({
   getEthereumAddress: jest.fn().mockResolvedValue("0xWalletAddr"),
@@ -180,6 +175,20 @@ describe("send_evm_transaction", () => {
     await expect(sendEvmTransactionTool.handler({ chainId: 99999 }, ctx as any)).rejects.toThrow(
       "Unsupported chainId: 99999",
     );
+  });
+
+  it("rejects Arbitrum One before simulating or signing", async () => {
+    const ctx = makeContext();
+    const { runSimulation } = jest.requireMock("../utils/simulation");
+
+    for (const confirmed of ["false", "true"]) {
+      await expect(
+        sendEvmTransactionTool.handler({ chainId: 42161, to: EVM_TX_TO, confirmed }, ctx as any),
+      ).rejects.toThrow("Arbitrum One (eip155:42161) is not supported for sending transactions");
+    }
+
+    expect(runSimulation).not.toHaveBeenCalled();
+    expect(ctx.client.signAndSendTransaction).not.toHaveBeenCalled();
   });
 
   it("should throw when chainId is missing", async () => {

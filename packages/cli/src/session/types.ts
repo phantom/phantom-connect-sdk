@@ -11,6 +11,7 @@ export type ISessionManager<T extends BaseSessionData> = {
   logout: () => Promise<void>;
   getClient(): PhantomClient;
   getSession: () => T;
+  getLocalSession: () => Pick<T, "walletId" | "organizationId"> | null;
   tryRefreshSession?: () => Promise<boolean>;
   resetSession: (displayOptions?: DeviceCodeAuthDisplayOptions) => Promise<void>;
 };

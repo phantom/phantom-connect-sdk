@@ -44,11 +44,11 @@ describe("deposit_to_hyperliquid", () => {
 
   it("delegates to buyTokenTool.handler with hypercore:mainnet as buyChainId", async () => {
     const ctx = makeContext();
-    await depositToHyperliquidTool.handler({ sourceChainId: "eip155:42161", amount: "100" }, ctx as any);
+    await depositToHyperliquidTool.handler({ sourceChainId: "eip155:8453", amount: "100" }, ctx as any);
 
     expect(buyTokenTool.handler).toHaveBeenCalledWith(
       expect.objectContaining({
-        sellChainId: "eip155:42161",
+        sellChainId: "eip155:8453",
         buyChainId: "hypercore:mainnet",
         amount: "100",
       }),
@@ -80,26 +80,26 @@ describe("deposit_to_hyperliquid", () => {
   it("passes explicit sellTokenMint through to buy_token", async () => {
     await depositToHyperliquidTool.handler(
       {
-        sourceChainId: "eip155:42161",
+        sourceChainId: "eip155:8453",
         amount: "100",
-        sellTokenMint: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+        sellTokenMint: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
       },
       makeContext() as any,
     );
     expect(buyTokenTool.handler).toHaveBeenCalledWith(
-      expect.objectContaining({ sellTokenMint: "0xaf88d065e77c8cc2239327c5edb3a432268e5831" }),
+      expect.objectContaining({ sellTokenMint: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" }),
       expect.anything(),
     );
   });
 
   it("defaults execute to false", async () => {
-    await depositToHyperliquidTool.handler({ sourceChainId: "eip155:42161", amount: "100" }, makeContext() as any);
+    await depositToHyperliquidTool.handler({ sourceChainId: "eip155:8453", amount: "100" }, makeContext() as any);
     expect(buyTokenTool.handler).toHaveBeenCalledWith(expect.objectContaining({ execute: false }), expect.anything());
   });
 
   it("passes execute: true through", async () => {
     await depositToHyperliquidTool.handler(
-      { sourceChainId: "eip155:42161", amount: "100", execute: "true" },
+      { sourceChainId: "eip155:8453", amount: "100", execute: "true" },
       makeContext() as any,
     );
     expect(buyTokenTool.handler).toHaveBeenCalledWith(expect.objectContaining({ execute: true }), expect.anything());
@@ -108,7 +108,7 @@ describe("deposit_to_hyperliquid", () => {
   it("propagates errors from buy_token", async () => {
     (buyTokenTool.handler as jest.Mock).mockRejectedValue(new Error("SwapperNoQuotes"));
     await expect(
-      depositToHyperliquidTool.handler({ sourceChainId: "eip155:42161", amount: "100" }, makeContext() as any),
+      depositToHyperliquidTool.handler({ sourceChainId: "eip155:8453", amount: "100" }, makeContext() as any),
     ).rejects.toThrow("SwapperNoQuotes");
   });
 });

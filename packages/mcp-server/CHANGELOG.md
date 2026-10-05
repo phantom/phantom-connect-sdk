@@ -1,5 +1,22 @@
 # @phantom/mcp-server
 
+## 1.2.9
+
+### Patch Changes
+
+- 2b0391d: Mark Arbitrum One and Arbitrum Sepolia as unsupported for sending transactions. `transfer_tokens`, `send_evm_transaction`, `buy_token`, and `deposit_to_hyperliquid` now reject Arbitrum with a clear error before simulating, quoting, or signing, and tool descriptions no longer list Arbitrum as a supported network.
+- 8652e8d: Keep wallet status local without authentication or network requests. Report cached wallet and organization metadata without claiming that the server accepts the session. Custom `ISessionManager` implementations must add the side-effect-free `getLocalSession` method, which returns only wallet and organization identifiers or null.
+
+  Limit client registration requests to 30 seconds and preserve safe HTTP status, Ray ID, and Retry-After metadata in errors. Do not expose response bodies or credentials, and do not retry automatically.
+
+  Initialize the OpenClaw tool context session manager before running wallet handlers.
+
+- 7513400: Add Robinhood Chain mainnet and testnet identifiers, submission mappings, and default RPC URLs. Preserve Ethereum account derivation for EVM networks.
+- Updated dependencies [2b0391d]
+- Updated dependencies [8652e8d]
+- Updated dependencies [7513400]
+  - @phantom/cli@3.0.0
+
 ## 1.2.8
 
 ### Patch Changes

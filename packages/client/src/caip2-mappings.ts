@@ -92,6 +92,16 @@ const CAIP2_NETWORK_MAPPINGS: Record<string, NetworkMapping> = {
     network: "testnet",
     description: "Monad Testnet",
   },
+  [NetworkId.ROBINHOOD_MAINNET]: {
+    chain: "robinhood",
+    network: "mainnet",
+    description: "Robinhood Chain",
+  },
+  [NetworkId.ROBINHOOD_TESTNET]: {
+    chain: "robinhood",
+    network: "testnet",
+    description: "Robinhood Chain Testnet",
+  },
 
   // Bitcoin networks (for future support)
   [NetworkId.BITCOIN_MAINNET]: {

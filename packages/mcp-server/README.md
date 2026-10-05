@@ -102,7 +102,11 @@ The server reads environment variables for configuration:
 
 ## Authentication
 
-On first use, the server will prompt you to authenticate with your Phantom wallet via browser. Sessions are persisted locally and refreshed automatically.
+Tools that need authentication can start the sign-in flow when no usable session exists. Sessions persist locally.
+
+`wallet_status` reads only local session metadata. It does not register a client, start sign-in, or make network requests. A connected result does not confirm that the server accepts the session or that all credentials are usable.
+
+Client registration requests time out after 30 seconds. Registration errors preserve safe HTTP status, `cf-ray`, and `Retry-After` values when available. They exclude response bodies and credentials. The server does not retry registration automatically.
 
 ## Requirements
 

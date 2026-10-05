@@ -15,6 +15,53 @@ const unsignedEvmTransaction = Transaction.from({
   value: 1,
 }).unsignedSerialized;
 
+describe("EVM submission network contracts", () => {
+  it.each([
+    [4663, NetworkId.ROBINHOOD_MAINNET, "robinhood", "mainnet"],
+    [46630, NetworkId.ROBINHOOD_TESTNET, "robinhood", "testnet"],
+    [1, NetworkId.ETHEREUM_MAINNET, "ethereum", "mainnet"],
+    [8453, NetworkId.BASE_MAINNET, "base", "mainnet"],
+  ] as const)("constructs the submission request for chain %i", async (chainId, networkId, chain, network) => {
+    (axios.create as jest.Mock).mockReturnValue({
+      interceptors: { request: { use: jest.fn() }, response: { use: jest.fn() } },
+    });
+    const client = new PhantomClient({
+      apiBaseUrl: "https://offline.invalid",
+      organizationId: "test-org-id",
+      walletType: "server-wallet",
+    });
+    const postKmsRpc = jest.fn().mockRejectedValue(new Error("Stopped before KMS transport"));
+    Object.defineProperty(client, "kmsApi", { value: { postKmsRpc } });
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(new Response("1789632000000"));
+    const transaction = Transaction.from({
+      chainId,
+      nonce: 0,
+      gasLimit: 21_000,
+      gasPrice: 1,
+      to: "0x0000000000000000000000000000000000000001",
+      value: 1,
+    }).unsignedSerialized;
+
+    try {
+      await expect(client.signAndSendTransaction({ walletId: "wallet-1", transaction, networkId })).rejects.toThrow(
+        "Stopped before KMS transport",
+      );
+      expect(postKmsRpc).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "signTransaction",
+          params: expect.objectContaining({
+            submissionConfig: { chain, network },
+            derivationInfo: expect.objectContaining({ derivationPath: "m/44'/60'/0'/0/0" }),
+          }),
+        }),
+        { headers: { "X-Rpc-Method": "eth_sendTransaction" } },
+      );
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+});
+
 // Mock axios to prevent actual HTTP requests
 jest.mock("axios", () => {
   const actualAxios = jest.requireActual("axios");

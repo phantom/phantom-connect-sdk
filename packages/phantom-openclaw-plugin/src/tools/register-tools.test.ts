@@ -28,13 +28,27 @@ jest.mock("@phantom/cli", () => {
   const actual = jest.requireActual<typeof import("@phantom/cli")>("@phantom/cli");
   return {
     ...actual,
-    SessionManager: jest.fn().mockImplementation(() => ({
-      initialize: jest.fn().mockResolvedValue(undefined),
-      getSession: jest.fn().mockReturnValue({ walletId: "wallet-1", organizationId: "org-1" }),
-      getClient: jest.fn(),
-      isInitialized: jest.fn().mockReturnValue(false),
-      resetSession: jest.fn().mockResolvedValue(undefined),
-    })),
+    SessionManager: jest.fn().mockImplementation(() => {
+      let initialized = false;
+      return {
+        initialize: jest.fn(async () => {
+          await Promise.resolve();
+          initialized = true;
+        }),
+        getSession: jest.fn(() => {
+          if (!initialized) throw new Error("SessionManager not initialized");
+          return { walletId: "wallet-1", organizationId: "org-1" };
+        }),
+        getClient: jest.fn(() => {
+          if (!initialized) throw new Error("SessionManager not initialized");
+          return {
+            getWalletAddresses: jest.fn().mockResolvedValue([{ addressType: "solana", address: "wallet-address" }]),
+          };
+        }),
+        isInitialized: jest.fn(() => initialized),
+        resetSession: jest.fn().mockResolvedValue(undefined),
+      };
+    }),
   };
 });
 
@@ -171,6 +185,32 @@ describe("registerPhantomTools schema conversion", () => {
             connected: false,
             reason: "No active session found. Call phantom_login or another wallet tool to authenticate.",
             openClawPluginVersion: version,
+            provider: "phantom",
+          },
+          null,
+          2,
+        ),
+      },
+    ]);
+  });
+
+  it("executes wallet handlers with an initialized context manager", async () => {
+    const { registeredTools, session } = registerToolsForTest();
+    jest.spyOn(session, "isInitialized").mockReturnValue(true);
+    const tool = registeredTools.find(candidate => candidate.name === "get_wallet_addresses");
+    if (!tool) throw new Error("Wallet addresses tool not registered");
+
+    const response = await tool.execute("tool-call-addresses", {});
+
+    expect(response.isError).toBeUndefined();
+    expect(response.content).toEqual([
+      {
+        type: "text",
+        text: JSON.stringify(
+          {
+            walletId: "wallet-1",
+            organizationId: "org-1",
+            addresses: [{ addressType: "solana", address: "wallet-address" }],
             provider: "phantom",
           },
           null,

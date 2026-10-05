@@ -3,10 +3,21 @@
  * Implements RFC 7591: OAuth 2.0 Dynamic Client Registration Protocol
  */
 
-import axios, { type AxiosError } from "axios";
+import axios, { AxiosHeaders } from "axios";
 import { randomUUID } from "crypto";
+import { Errors } from "incur";
 import { Logger } from "../utils/logger";
 import type { DCRClientConfig } from "../session/types";
+
+const CF_RAY = /^[0-9a-f]{16}(?:-[A-Z]{3})?$/i;
+const DELAY_SECONDS = /^[0-9]{1,10}$/;
+
+/** RFC 9110 §10.2.3: `Retry-After` is delay-seconds or an IMF-fixdate HTTP-date. */
+function isRetryAfter(value: string): boolean {
+  if (DELAY_SECONDS.test(value)) return true;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.toUTCString() === value;
+}
 
 /**
  * RFC 7591 Dynamic Client Registration request payload
@@ -121,6 +132,7 @@ export class DCRClient {
         headers: {
           "Content-Type": "application/json",
         },
+        timeout: 30000,
       });
 
       this.logger.info(`Successfully registered client: ${response.data.client_id}`);
@@ -131,12 +143,32 @@ export class DCRClient {
         client_id_issued_at: response.data.client_id_issued_at,
       };
     } catch (error) {
-      const axiosError = error as AxiosError;
-      const errorMessage = axiosError.response?.data ? JSON.stringify(axiosError.response.data) : axiosError.message;
+      const axiosError = axios.isAxiosError(error) ? error : undefined;
+      const timedOut = axiosError?.code === "ECONNABORTED" || axiosError?.code === "ETIMEDOUT";
+      let message = timedOut ? "Dynamic Client Registration timed out." : "Dynamic Client Registration failed.";
+      const response = axiosError?.response;
 
-      this.logger.error(`Failed to register OAuth client: ${errorMessage}`);
+      if (response) {
+        if (Number.isInteger(response.status) && response.status >= 100 && response.status <= 599) {
+          message += ` HTTP status: ${response.status}.`;
+        }
 
-      throw new Error(`Dynamic Client Registration failed: ${errorMessage}`);
+        const headers = AxiosHeaders.from(response.headers as Parameters<typeof AxiosHeaders.from>[0]);
+        const ray = headers.get("cf-ray");
+        if (typeof ray === "string" && CF_RAY.test(ray)) {
+          message += ` cf-ray: ${ray}.`;
+        }
+        const retryAfter = headers.get("retry-after");
+        if (typeof retryAfter === "string" && isRetryAfter(retryAfter)) {
+          message += ` Retry-After: ${retryAfter}.`;
+        }
+      }
+
+      this.logger.error(message);
+      throw new Errors.IncurError({
+        code: timedOut ? "DCR_REGISTRATION_TIMEOUT" : "DCR_REGISTRATION_FAILED",
+        message,
+      });
     }
   }
 }

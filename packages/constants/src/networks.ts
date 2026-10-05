@@ -20,6 +20,8 @@ export type InternalNetworkCaip =
   | "eip155:421614"
   | "eip155:143"
   | "eip155:10143"
+  | "eip155:4663"
+  | "eip155:46630"
   // HYPERCORE
   | "hypercore:mainnet"
   | "hypercore:testnet"
@@ -220,6 +222,23 @@ export const NETWORK_CONFIGS: Record<NetworkId, NetworkConfig> = {
       transactionUrl: "https://testnet.monadexplorer.com/tx/{hash}",
       addressUrl: "https://testnet.monadexplorer.com/address/{address}",
     },
+  },
+
+  [NetworkId.ROBINHOOD_MAINNET]: {
+    name: "Robinhood Chain",
+    chain: "robinhood",
+    network: "mainnet",
+    internalCaip: "eip155:4663",
+    chainId: 4663,
+    slip44: "60",
+  },
+  [NetworkId.ROBINHOOD_TESTNET]: {
+    name: "Robinhood Chain Testnet",
+    chain: "robinhood",
+    network: "testnet",
+    internalCaip: "eip155:46630",
+    chainId: 46630,
+    slip44: "60",
   },
 
   // Bitcoin Networks (for future support)

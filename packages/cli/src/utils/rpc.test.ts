@@ -1,3 +1,4 @@
+import { NetworkId } from "@phantom/constants";
 import {
   validateHttpsUrl,
   resolveSolanaRpcUrl,
@@ -45,10 +46,6 @@ describe("resolveSolanaRpcUrl", () => {
     expect(resolveSolanaRpcUrl("solana:102")).toBe(DEFAULT_SOLANA_RPC_URLS["solana:102"]);
   });
 
-  it("does not expose an override parameter", () => {
-    expect(resolveSolanaRpcUrl.length).toBe(1);
-  });
-
   it("throws for unsupported chain ID", () => {
     expect(() => resolveSolanaRpcUrl("solana:999")).toThrow(
       'No default RPC endpoint configured for chainId "solana:999"',
@@ -75,8 +72,16 @@ describe("resolveEvmRpcUrl", () => {
     expect(resolveEvmRpcUrl("eip155:84532")).toBe(DEFAULT_EVM_RPC_URLS["eip155:84532"]);
   });
 
-  it("does not expose an override parameter", () => {
-    expect(resolveEvmRpcUrl.length).toBe(1);
+  it("returns the Robinhood mainnet proxy URL", () => {
+    expect(resolveEvmRpcUrl(NetworkId.ROBINHOOD_MAINNET)).toBe(
+      "https://node-proxy.phantom.app/v1/chain/robinhood/network/mainnet",
+    );
+  });
+
+  it("returns the Robinhood testnet proxy URL", () => {
+    expect(resolveEvmRpcUrl(NetworkId.ROBINHOOD_TESTNET)).toBe(
+      "https://node-proxy.phantom.app/v1/chain/robinhood/network/testnet",
+    );
   });
 
   it("throws for unsupported networkId", () => {

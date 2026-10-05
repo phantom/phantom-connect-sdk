@@ -140,7 +140,13 @@ When running as an MCP server (`phantom --mcp`), all commands are exposed as MCP
 
 ## Authentication
 
-On first use, the CLI will prompt you to authenticate via browser. Sessions are persisted locally and refreshed automatically.
+Commands that need authentication can start the sign-in flow when no usable session exists. Sessions persist locally.
+
+`phantom wallet status` reads only local session metadata. It does not register a client, start sign-in, or make network requests. A connected result does not confirm that the server accepts the session or that all credentials are usable.
+
+Client registration requests time out after 30 seconds. Registration failures preserve safe HTTP status, `cf-ray`, and `Retry-After` values when available. They do not include response bodies or credentials, and the CLI does not retry registration automatically.
+
+Custom `ISessionManager` implementations must provide `getLocalSession`. The method returns only the wallet and organization identifiers, or null when no local session exists. It must not authenticate, validate the session remotely, or change initialization state.
 
 ## Requirements
 

@@ -307,6 +307,7 @@ Currently our libraries only fully support Solana.
 - Base (Mainnet, Sepolia)
 - Arbitrum (One, Sepolia)
 - Monad (Mainnet, Testnet)
+- Robinhood Chain (Mainnet, Testnet)
 - Bitcoin
 - Sui
 

@@ -1,6 +1,6 @@
 {
   "name": "@phantom/utils",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Utility functions for Phantom Wallet SDK",
   "repository": {
     "type": "git",

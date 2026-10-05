@@ -8,7 +8,7 @@ import { isSolanaChain } from "@phantom/utils";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { getMint } from "@solana/spl-token";
 import { createAction } from "../utils/actions";
-import { normalizeSwapperChainId } from "../utils/network";
+import { assertTransactionNetworkSupported, normalizeSwapperChainId } from "../utils/network";
 import { getSolanaAddress } from "../utils/solana";
 import { getEthereumAddress } from "../utils/evm";
 import { parseBaseUnitAmount, parseUiAmount, requirePositiveAmount } from "../utils/amount";
@@ -39,7 +39,7 @@ const BuyTokenSchema = z.object({
     .optional()
     .default(false)
     .describe(
-      "Set true to buy the native token of buyChainId (SOL on Solana, ETH on Base/Ethereum/Arbitrum, MATIC on Polygon). " +
+      "Set true to buy the native token of buyChainId (SOL on Solana, ETH on Base/Ethereum, MATIC on Polygon). " +
         "Use this instead of buyTokenMint for native tokens. Default: false.",
     ),
   sellTokenMint: z
@@ -109,7 +109,8 @@ const BuyTokenSchema = z.object({
 const buyTokenAction = createAction({
   description:
     "Phantom Wallet — Fetches an optimized swap quote from Phantom's routing engine and can optionally execute it. " +
-    "Supports same-chain Solana swaps, same-chain EVM swaps (Ethereum, Base, Polygon, Arbitrum, Monad), and cross-chain swaps between Solana and EVM chains. " +
+    "Supports same-chain Solana swaps, same-chain EVM swaps (Ethereum, Base, Polygon, Monad), and cross-chain swaps between Solana and EVM chains. " +
+    "Arbitrum (eip155:42161) is not supported as a sell or buy chain. " +
     "Cross-chain flows work in both directions, including EVM to Solana and Solana to EVM, and can also target Hypercore/Hyperliquid when supported. " +
     "Both sellChainId and buyChainId must be a Solana chain (solana:*), EVM chain (eip155:*), or Hypercore/Hyperliquid (hypercore:*); other namespaces are not supported. " +
     "Use this for ALL swap/exchange operations (e.g. 'swap USDC to SOL', 'buy ETH on Base', 'bridge SOL to ETH'). " +
@@ -159,6 +160,9 @@ const buyTokenAction = createAction({
     if (!isBuySolana && !isBuyEvm && !isBuyHypercore) {
       throw new Error(`Unsupported buy chain: ${buySwapperChainId}. Supported: solana:*, eip155:*, hypercore:*`);
     }
+    assertTransactionNetworkSupported(sellSwapperChainId);
+    // The wallet could not move funds received on an unsupported network, so reject it as a destination too.
+    assertTransactionNetworkSupported(buySwapperChainId);
 
     const amount = params.amount;
     const walletId = params.walletId ?? session.walletId;

@@ -1,7 +1,7 @@
 import { Cli, z } from "incur";
 import { Logger } from "./utils/logger";
 import { PhantomApiClient } from "@phantom/phantom-api-client";
-import { ANALYTICS_HEADERS, NetworkId } from "@phantom/constants";
+import { NetworkId } from "@phantom/constants";
 import { AddressType } from "@phantom/client";
 import { base64urlEncode } from "@phantom/base64url";
 import { loginCommand } from "./actions/login";
@@ -18,8 +18,6 @@ import * as packageJson from "../package.json";
 import { varsSchema } from "./vars";
 import type { BaseSessionData, ISessionManager } from "./session/types";
 import { tools } from "./tools/index";
-import { getWalletAddressesTool } from "./actions/get-wallet-addresses";
-import { getConnectionStatusTool } from "./actions/get-connection-status";
 import { logoutCommand } from "./actions/logout";
 
 const COMMANDS = [
@@ -37,19 +35,11 @@ const COMMANDS = [
 const MCP_INSTRUCTIONS = [
   "This is the Phantom Wallet MCP Server. Phantom is an enterprise-grade non-custodial crypto wallet supporting Solana, Ethereum, Bitcoin, Base, Polygon, Sui, and Monad. " +
     "Authentication uses Phantom Connect (OAuth with Google, Apple, or Phantom extension). Sessions persist across restarts. " +
-    `Always call ${getWalletAddressesTool.name} or ${getConnectionStatusTool.name} first to confirm the user is authenticated. ` +
+    "The wallet status tool reports only local session metadata without authentication or network requests. " +
+    "A local session does not prove server acceptance. Use the wallet addresses tool to authenticate when needed. " +
     "If an auth error occurs, re-authentication is triggered and the agent should retry after the user completes browser sign-in. ",
   "Available tools: " + tools.map(tool => tool.name).join(", "),
 ];
-
-const STATIC_HEADERS: Record<string, string> = {
-  [ANALYTICS_HEADERS.PLATFORM]: "ext-sdk",
-  [ANALYTICS_HEADERS.CLIENT]: "mcp",
-  [ANALYTICS_HEADERS.SDK_VERSION]: process.env["PHANTOM_VERSION"] ?? "0.0.1",
-  // Signal to the backend that this client supports all order types (limit, TP, SL).
-  // "0.0.0-dev" is treated as always-eligible by isClientVersionEligible().
-  "x-phantom-version": "0.0.0-dev",
-};
 
 export function createCli<T extends BaseSessionData>(
   manager: ISessionManager<T>,
@@ -79,28 +69,6 @@ export function createCli<T extends BaseSessionData>(
         "open a perps position",
       ],
     },
-  });
-
-  instance.use(async (c, next) => {
-    // Login manages auth via resetSession(), and logout clears state directly —
-    // skip initialize() for both so middleware doesn't trigger unnecessary auth flow.
-    if (![loginCommand.name, logoutCommand.name].includes(c.command) && !c.var.manager.isInitialized()) {
-      await c.var.manager.initialize();
-    }
-
-    const sessionAppId = c.var.manager.isInitialized() ? c.var.manager.getSession().appId : undefined;
-    const appId = process.env["PHANTOM_APP_ID"] ?? process.env["PHANTOM_CLIENT_ID"] ?? sessionAppId;
-
-    // Important: we should not mutate the static headers to prevent cross-request pollution
-    apiClient.setHeaders({
-      ...STATIC_HEADERS,
-      ...(appId && {
-        [ANALYTICS_HEADERS.APP_ID]: appId,
-        "x-api-key": appId,
-      }),
-    });
-
-    await next();
   });
 
   if (includeAuth) {

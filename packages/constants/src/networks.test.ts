@@ -5,6 +5,10 @@ import {
   getExplorerUrl,
   getSupportedNetworks,
   getNetworksByChain,
+  chainIdToNetworkId,
+  networkIdToChainId,
+  networkIdToInternalCaip,
+  internalCaipToNetworkId,
 } from "./networks";
 
 describe("Networks", () => {
@@ -19,14 +23,6 @@ describe("Networks", () => {
       expect(NETWORK_CONFIGS[NetworkId.ETHEREUM_MAINNET]).toBeDefined();
       expect(NETWORK_CONFIGS[NetworkId.ETHEREUM_MAINNET].chain).toBe("ethereum");
       expect(NETWORK_CONFIGS[NetworkId.ETHEREUM_MAINNET].network).toBe("mainnet");
-    });
-
-    it("should have explorer configurations for all networks", () => {
-      Object.entries(NETWORK_CONFIGS).forEach(([_networkId, config]) => {
-        expect(config.explorer).toBeDefined();
-        expect(config.explorer!.transactionUrl).toContain("{hash}");
-        expect(config.explorer!.addressUrl).toContain("{address}");
-      });
     });
   });
 
@@ -54,17 +50,13 @@ describe("Networks", () => {
       expect(url).toBe("https://etherscan.io/address/0x123456");
     });
 
-    it("should return undefined for network without explorer", () => {
-      // Mock a network without explorer
-      const originalConfig = NETWORK_CONFIGS[NetworkId.SOLANA_MAINNET];
-      delete (NETWORK_CONFIGS[NetworkId.SOLANA_MAINNET] as any).explorer;
-
-      const url = getExplorerUrl(NetworkId.SOLANA_MAINNET, "transaction", "test-hash");
-      expect(url).toBeUndefined();
-
-      // Restore original config
-      NETWORK_CONFIGS[NetworkId.SOLANA_MAINNET] = originalConfig;
-    });
+    it.each([NetworkId.ROBINHOOD_MAINNET, NetworkId.ROBINHOOD_TESTNET])(
+      "should return undefined for %s without an explorer",
+      networkId => {
+        expect(getExplorerUrl(networkId, "transaction", "0x123456")).toBeUndefined();
+        expect(getExplorerUrl(networkId, "address", "0x123456")).toBeUndefined();
+      },
+    );
   });
 
   describe("getSupportedNetworks", () => {
@@ -94,6 +86,26 @@ describe("Networks", () => {
     it("should return empty array for unsupported chain", () => {
       const networks = getNetworksByChain("unsupported-chain");
       expect(networks).toEqual([]);
+    });
+  });
+
+  describe("network ID conversions", () => {
+    it.each([
+      [NetworkId.ROBINHOOD_MAINNET, 4663, "eip155:4663"],
+      [NetworkId.ROBINHOOD_TESTNET, 46630, "eip155:46630"],
+    ] as const)("round-trips %s through numeric and internal CAIP IDs", (networkId, chainId, internalCaip) => {
+      expect(networkIdToChainId(networkId)).toBe(chainId);
+      expect(chainIdToNetworkId(chainId)).toBe(networkId);
+      expect(networkIdToInternalCaip(networkId)).toBe(internalCaip);
+      expect(internalCaipToNetworkId(internalCaip)).toBe(networkId);
+    });
+
+    it("returns undefined for an unknown numeric chain ID", () => {
+      expect(chainIdToNetworkId(99999)).toBeUndefined();
+    });
+
+    it("rejects an unmapped internal CAIP ID", () => {
+      expect(() => internalCaipToNetworkId("solana:localnet")).toThrow();
     });
   });
 });

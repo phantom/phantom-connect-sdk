@@ -1,6 +1,6 @@
 {
   "name": "@phantom/api-key-stamper",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "API key stamper for Phantom Wallet SDK",
   "repository": {
     "type": "git",

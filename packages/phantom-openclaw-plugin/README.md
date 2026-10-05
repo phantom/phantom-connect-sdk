@@ -208,7 +208,7 @@ Sign and broadcast an EVM transaction. By default this follows a two-step flow: 
 
 **Parameters:**
 
-- `chainId` (number, required): EVM chain ID (e.g., `1` for Ethereum, `8453` for Base, `137` for Polygon, `42161` for Arbitrum, `143` for Monad)
+- `chainId` (number, required): EVM chain ID (e.g., `1` for Ethereum, `8453` for Base, `137` for Polygon, `143` for Monad). Arbitrum (`42161`) is not supported
 - `to` (string, optional): Recipient address
 - `value` (string, optional): Amount in wei as hex (e.g., `"0x38D7EA4C68000"`)
 - `data` (string, optional): Encoded calldata (0x-prefixed hex)
@@ -290,7 +290,7 @@ Transfer native tokens or fungible tokens on Solana and EVM chains. By default t
 
 **Parameters:**
 
-- `networkId` (string, required): Network — Solana (`"solana:mainnet"`, `"solana:devnet"`) or EVM (`"eip155:1"`, `"eip155:8453"`, `"eip155:137"`, `"eip155:42161"`, `"eip155:143"`)
+- `networkId` (string, required): Network — Solana (`"solana:mainnet"`, `"solana:devnet"`) or EVM (`"eip155:1"`, `"eip155:8453"`, `"eip155:137"`, `"eip155:143"`). Arbitrum (`"eip155:42161"`) is not supported
 - `to` (string, required): Recipient — Solana base58 address or EVM `0x`-prefixed address
 - `amount` (string, required): Transfer amount (e.g., "0.1" or "1000000")
 - `amountUnit` (string, optional): `"ui"` for human-readable units or `"base"` for atomic units. Default: `"ui"`
@@ -431,7 +431,7 @@ Swaps tokens to USDC via Phantom's routing engine and transfers the USDC into th
 
 **Parameters:**
 
-- `sourceChainId` (string, required): Source chain — `"solana:mainnet"`, `"eip155:42161"`, `"eip155:8453"`, `"eip155:1"`, or `"eip155:137"`
+- `sourceChainId` (string, required): Source chain — `"solana:mainnet"`, `"eip155:8453"`, `"eip155:1"`, or `"eip155:137"`. Arbitrum (`"eip155:42161"`) is not supported
 - `amount` (string, required): Amount to deposit in human-readable units
 - `tokenAddress` (string, optional): ERC-20/SPL token address — omit for native SOL or default USDC per chain
 - `walletId` (string, optional), `derivationIndex` (number, optional, default 0)
@@ -559,8 +559,8 @@ Network identifiers follow the CAIP-2/CAIP-10 format. Here are the supported net
 - Polygon Amoy: `eip155:80002`
 - Base Mainnet: `eip155:8453`
 - Base Sepolia: `eip155:84532`
-- Arbitrum One: `eip155:42161`
-- Arbitrum Sepolia: `eip155:421614`
+- Arbitrum One: `eip155:42161` (sending transactions is not supported)
+- Arbitrum Sepolia: `eip155:421614` (sending transactions is not supported)
 
 ### Bitcoin
 

@@ -1,6 +1,6 @@
 {
   "name": "@phantom/client",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "HTTP client for Phantom Wallet API",
   "repository": {
     "type": "git",

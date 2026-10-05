@@ -28,6 +28,9 @@ export enum NetworkId {
   MONAD_MAINNET = "eip155:143",
   MONAD_TESTNET = "eip155:10143",
 
+  ROBINHOOD_MAINNET = "eip155:4663",
+  ROBINHOOD_TESTNET = "eip155:46630",
+
   // Bitcoin Networks (for future support)
   BITCOIN_MAINNET = "bip122:000000000019d6689c085ae165831e93",
   BITCOIN_TESTNET = "bip122:000000000933ea01ad0ee984209779ba",

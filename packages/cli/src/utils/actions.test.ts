@@ -1,22 +1,42 @@
-import { z } from "incur";
-import { PaymentRequiredError, RateLimitError } from "@phantom/phantom-api-client";
+import { z, type MiddlewareContext } from "incur";
+import { PaymentRequiredError, PhantomApiClient, RateLimitError } from "@phantom/phantom-api-client";
+import { ANALYTICS_HEADERS } from "@phantom/constants";
 import { createAction } from "./actions";
+import { Logger } from "./logger";
+import type { ToolContext } from "../tools/types";
+import type { varsSchema } from "../vars";
 
-const makeContext = () => ({
-  apiClient: {} as any,
-  logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
-  manager: {
-    isInitialized: jest.fn().mockReturnValue(true),
-    getSession: jest.fn().mockReturnValue({ walletId: "wallet-1", organizationId: "org-1", appId: "app-1" }),
-    getClient: jest.fn(),
-    tryRefreshSession: jest.fn().mockResolvedValue(false),
-    resetSession: jest.fn().mockResolvedValue(undefined),
-  },
-});
+const makeContext = () =>
+  ({
+    apiClient: new PhantomApiClient({ baseUrl: "https://api.example.test" }),
+    logger: new Logger("action-test"),
+    manager: {
+      isInitialized: jest.fn().mockReturnValue(true),
+      initialize: jest.fn<Promise<void>, []>().mockResolvedValue(undefined),
+      logout: jest.fn<Promise<void>, []>().mockResolvedValue(undefined),
+      getSession: jest.fn(() => ({
+        walletId: "wallet-1",
+        organizationId: "org-1",
+        appId: "app-1",
+        createdAt: 1,
+        updatedAt: 1,
+      })),
+      getLocalSession: jest.fn().mockReturnValue(null),
+      getClient: jest.fn(() => {
+        throw new Error("No wallet client configured");
+      }),
+      tryRefreshSession: jest.fn().mockResolvedValue(false),
+      resetSession: jest.fn().mockResolvedValue(undefined),
+    },
+  }) satisfies ToolContext;
 
-const makeAction = (run: (args: any) => Promise<any>) =>
+const makeAction = (
+  run: (args: { options: { value?: string }; var: ToolContext }) => Promise<{ result: string }>,
+  requiresAuth?: boolean,
+) =>
   createAction({
     description: "Test action",
+    requiresAuth,
     options: z.object({ value: z.string().optional().describe("A value") }),
     output: z.object({ result: z.string() }),
     mcp: {
@@ -26,7 +46,101 @@ const makeAction = (run: (args: any) => Promise<any>) =>
     run,
   });
 
+const makeMiddlewareContext = (context: ToolContext): MiddlewareContext<typeof varsSchema> => ({
+  agent: false,
+  command: "test action",
+  displayName: "phantom",
+  env: {},
+  error: ({ message }) => {
+    throw new Error(message);
+  },
+  format: "json",
+  formatExplicit: true,
+  globals: {},
+  name: "phantom",
+  set: jest.fn(),
+  var: context,
+  version: undefined,
+});
+
 describe("createAction", () => {
+  describe("command authentication", () => {
+    beforeEach(() => {
+      const env = { ...process.env };
+      delete env.PHANTOM_APP_ID;
+      delete env.PHANTOM_CLIENT_ID;
+      jest.replaceProperty(process, "env", env);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it("initializes before resolving session headers and running an authenticated action", async () => {
+      const ctx = makeContext();
+      ctx.manager.isInitialized.mockReturnValue(false);
+      ctx.manager.initialize.mockImplementation(() => {
+        ctx.manager.isInitialized.mockReturnValue(true);
+        return Promise.resolve();
+      });
+      const setHeaders = jest.spyOn(ctx.apiClient, "setHeaders");
+      const action = makeAction(async () => ({ result: "authenticated" }));
+      const next = jest.fn(async () => {
+        expect(ctx.manager.isInitialized()).toBe(true);
+        expect(setHeaders).toHaveBeenCalledTimes(1);
+        expect(setHeaders).toHaveBeenCalledWith(
+          expect.objectContaining({
+            [ANALYTICS_HEADERS.APP_ID]: "app-1",
+            "x-api-key": "app-1",
+          }),
+        );
+        await expect(action.command.run({ options: {}, var: ctx })).resolves.toEqual({ result: "authenticated" });
+      });
+
+      for (const middleware of action.command.middleware) {
+        await middleware(makeMiddlewareContext(ctx), next);
+      }
+
+      expect(ctx.manager.initialize).toHaveBeenCalledTimes(1);
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    it("runs a local action without initialization while still preparing request headers", async () => {
+      const ctx = makeContext();
+      ctx.manager.isInitialized.mockReturnValue(false);
+      ctx.manager.initialize.mockRejectedValue(new Error("Authentication must not run"));
+      const setHeaders = jest.spyOn(ctx.apiClient, "setHeaders");
+      const action = makeAction(async () => ({ result: "local" }), false);
+      const next = jest.fn(async () => {
+        await expect(action.command.run({ options: {}, var: ctx })).resolves.toEqual({ result: "local" });
+      });
+
+      for (const middleware of action.command.middleware) {
+        await middleware(makeMiddlewareContext(ctx), next);
+      }
+
+      expect(ctx.manager.initialize).not.toHaveBeenCalled();
+      expect(ctx.manager.getSession).not.toHaveBeenCalled();
+      expect(setHeaders).toHaveBeenCalledTimes(1);
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not initialize an already authenticated manager", async () => {
+      const ctx = makeContext();
+      const action = makeAction(async () => ({ result: "cached" }));
+      const next = jest.fn(async () => {
+        await expect(action.command.run({ options: {}, var: ctx })).resolves.toEqual({ result: "cached" });
+      });
+
+      for (const middleware of action.command.middleware) {
+        await middleware(makeMiddlewareContext(ctx), next);
+      }
+
+      expect(ctx.manager.initialize).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("auth errors", () => {
     it("resets the session when token refresh cannot recover a 401", async () => {
       const ctx = makeContext();

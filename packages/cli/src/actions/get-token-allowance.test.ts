@@ -2,13 +2,6 @@ import { getTokenAllowanceTool } from "./get-token-allowance";
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
-jest.mock("@phantom/constants", () => ({
-  chainIdToNetworkId: jest.fn((id: number) => {
-    const map: Record<number, string> = { 1: "eip155:1", 8453: "eip155:8453", 137: "eip155:137" };
-    return map[id];
-  }),
-}));
-
 jest.mock("../utils/evm", () => ({
   getEthereumAddress: jest.fn().mockResolvedValue("0xwalletowner00000000000000000000000000000"),
 }));

@@ -245,6 +245,14 @@ export class SessionManager implements ISessionManager<SessionData> {
     return this.session;
   }
 
+  getLocalSession(): Pick<SessionData, "walletId" | "organizationId"> | null {
+    const session = this.session ?? this.storage.load();
+    if (!session || this.storage.isExpired(session)) {
+      return null;
+    }
+    return { walletId: session.walletId, organizationId: session.organizationId };
+  }
+
   /**
    * Attempts to refresh the OAuth tokens for the current device-code session.
    * Used to recover from a 401 before falling back to full re-authentication.

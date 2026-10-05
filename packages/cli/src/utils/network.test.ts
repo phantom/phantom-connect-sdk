@@ -1,5 +1,5 @@
 import { NetworkId } from "@phantom/constants";
-import { normalizeNetworkId, normalizeSwapperChainId } from "./network";
+import { assertTransactionNetworkSupported, normalizeNetworkId, normalizeSwapperChainId } from "./network";
 
 describe("network utils", () => {
   describe("normalizeNetworkId", () => {
@@ -29,6 +29,31 @@ describe("network utils", () => {
 
     it("passes through unknown chain IDs", () => {
       expect(normalizeSwapperChainId("eip155:8453")).toBe("eip155:8453");
+    });
+  });
+
+  describe("assertTransactionNetworkSupported", () => {
+    it.each([
+      [NetworkId.ARBITRUM_ONE, "Arbitrum One (eip155:42161) is not supported for sending transactions"],
+      [NetworkId.ARBITRUM_SEPOLIA, "Arbitrum Sepolia (eip155:421614) is not supported for sending transactions"],
+    ])("rejects %s", (networkId, message) => {
+      expect(() => assertTransactionNetworkSupported(networkId)).toThrow(message);
+    });
+
+    it("points callers at supported EVM networks", () => {
+      expect(() => assertTransactionNetworkSupported(NetworkId.ARBITRUM_ONE)).toThrow("eip155:8453 (Base)");
+    });
+
+    it.each([
+      NetworkId.ETHEREUM_MAINNET,
+      NetworkId.BASE_MAINNET,
+      NetworkId.POLYGON_MAINNET,
+      NetworkId.MONAD_MAINNET,
+      NetworkId.SOLANA_MAINNET,
+      "solana:101",
+      "hypercore:mainnet",
+    ])("allows %s", networkId => {
+      expect(() => assertTransactionNetworkSupported(networkId)).not.toThrow();
     });
   });
 });

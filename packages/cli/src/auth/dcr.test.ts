@@ -2,12 +2,20 @@
  * Tests for Dynamic Client Registration (DCR) client
  */
 
-import axios from "axios";
+import axios, { AxiosError, AxiosHeaders } from "axios";
+import type * as AxiosModule from "axios";
+import { Errors } from "incur";
 import { DCRClient } from "./dcr";
 
-// Mock axios
-jest.mock("axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+jest.mock("axios", () => {
+  const actual = jest.requireActual<typeof AxiosModule>("axios");
+  return {
+    ...actual,
+    __esModule: true,
+    default: { ...actual.default, post: jest.fn() },
+  };
+});
+const mockedAxios = jest.mocked(axios);
 
 describe("DCRClient", () => {
   let dcrClient: DCRClient;
@@ -194,35 +202,6 @@ describe("DCRClient", () => {
       dateSpy.mockRestore();
     });
 
-    it("should throw descriptive error on HTTP error with response data", async () => {
-      const errorResponse = {
-        error: "invalid_request",
-        error_description: "Invalid redirect URI",
-      };
-
-      mockedAxios.post.mockRejectedValue({
-        response: {
-          data: errorResponse,
-        },
-        message: "Request failed with status code 400",
-      });
-
-      const error = await dcrClient.register(testRedirectUri).catch(e => e);
-
-      expect(error.message).toContain("Dynamic Client Registration failed:");
-      expect(error.message).toContain(JSON.stringify(errorResponse));
-    });
-
-    it("should throw descriptive error on HTTP error without response data", async () => {
-      mockedAxios.post.mockRejectedValueOnce({
-        message: "Network error",
-      });
-
-      await expect(dcrClient.register(testRedirectUri)).rejects.toThrow(
-        "Dynamic Client Registration failed: Network error",
-      );
-    });
-
     it("should log successful registration to stderr", async () => {
       const mockResponse = {
         data: {
@@ -244,22 +223,6 @@ describe("DCRClient", () => {
       expect(logOutput).toContain("[DCR]");
       expect(logOutput).toContain("Registering OAuth client");
       expect(logOutput).toContain("Successfully registered client");
-    });
-
-    it("should log errors to stderr on registration failure", async () => {
-      mockedAxios.post.mockRejectedValueOnce({
-        message: "Network error",
-      });
-
-      const stderrSpy = jest.spyOn(process.stderr, "write");
-
-      await expect(dcrClient.register(testRedirectUri)).rejects.toThrow();
-
-      expect(stderrSpy).toHaveBeenCalled();
-      const logOutput = stderrSpy.mock.calls.map(call => call[0]).join("");
-      expect(logOutput).toContain("[ERROR]");
-      expect(logOutput).toContain("[DCR]");
-      expect(logOutput).toContain("Failed to register OAuth client");
     });
 
     it("should work with custom authBaseUrl", async () => {
@@ -365,6 +328,142 @@ describe("DCRClient", () => {
       expect(payload.audience).toEqual([`urn:phantom:wallet-tag:${payload.client_id}`]);
       expect(payload.grant_types).toEqual(["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"]);
       expect(payload.token_endpoint_auth_method).toBe("none");
+    });
+  });
+
+  describe.each(["browser", "device"] as const)("%s registration failures", flow => {
+    async function registrationError() {
+      try {
+        if (flow === "browser") {
+          await dcrClient.register(testRedirectUri);
+        } else {
+          await dcrClient.registerForDeviceFlow();
+        }
+      } catch (error) {
+        if (!(error instanceof Errors.IncurError)) {
+          throw error;
+        }
+        return error;
+      }
+      throw new Error("Registration unexpectedly succeeded");
+    }
+
+    function httpError(status: number, headers: Record<string, string | string[]>) {
+      const config = {
+        headers: new AxiosHeaders({ Authorization: "Bearer secret-authorization" }),
+        data: "secret-request-body",
+      };
+      return new AxiosError("secret-axios-message", "ERR_BAD_RESPONSE", config, undefined, {
+        status,
+        statusText: "secret-status-text",
+        headers,
+        config,
+        data: { client_secret: "secret-client", access_token: "secret-token", device_code: "secret-device-code" },
+      });
+    }
+
+    beforeEach(() => {
+      dcrClient = new DCRClient("https://auth.phantom.app", "phantom-mcp");
+    });
+
+    it.each([
+      { status: 429, ray: "9abc012345678def-LHR", retryAfter: "00120" },
+      { status: 503, ray: "9abc012345678def", retryAfter: "Wed, 21 Oct 2015 07:28:00 GMT" },
+    ])("retains safe metadata for HTTP $status without exposing response secrets or retrying", async metadata => {
+      mockedAxios.post.mockRejectedValueOnce(
+        httpError(metadata.status, {
+          "CF-Ray": metadata.ray,
+          "Retry-After": metadata.retryAfter,
+          "Set-Cookie": "secret-cookie",
+          Authorization: "secret-header",
+        }),
+      );
+
+      const error = await registrationError();
+      const logs = jest
+        .mocked(process.stderr.write)
+        .mock.calls.map(call => call[0])
+        .join("");
+
+      expect(error.code).toBe("DCR_REGISTRATION_FAILED");
+      expect(error.message).toContain(`HTTP status: ${metadata.status}`);
+      expect(error.message).not.toContain(`HTTP status: ${metadata.status === 429 ? 503 : 429}`);
+      expect(error.message).toContain(`cf-ray: ${metadata.ray}`);
+      expect(error.message).toContain(`Retry-After: ${metadata.retryAfter}`);
+      expect(logs).toContain(error.message);
+      expect(`${error.message}${JSON.stringify(error)}${logs}`).not.toContain("secret-");
+      expect(error).not.toHaveProperty("cause");
+      expect(error).not.toHaveProperty("response");
+      expect(error).not.toHaveProperty("config");
+      expect(error.retryable).toBe(false);
+      expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      { reason: "credential text", ray: "Bearer secret-ray", retryAfter: "secret-retry-token" },
+      { reason: "terminal controls", ray: "9abc012345678def\u001b[31m", retryAfter: "120\r\nsecret-header: value" },
+      { reason: "oversized values", ray: "a".repeat(200), retryAfter: "1".repeat(200) },
+      { reason: "multiple values", ray: ["9abc012345678def"], retryAfter: ["120", "240"] },
+      { reason: "invalid syntax", ray: "9abc012345678deg-LHR", retryAfter: "-120" },
+      { reason: "invalid calendar date", ray: "", retryAfter: "Tue, 31 Feb 2015 07:28:00 GMT" },
+    ])("omits $reason from diagnostics", async ({ ray, retryAfter }) => {
+      mockedAxios.post.mockRejectedValueOnce(httpError(503, { "cf-ray": ray, "retry-after": retryAfter }));
+
+      const error = await registrationError();
+      const logs = jest
+        .mocked(process.stderr.write)
+        .mock.calls.map(call => call[0])
+        .join("");
+
+      expect(error.code).toBe("DCR_REGISTRATION_FAILED");
+      expect(error.message).toContain("HTTP status: 503");
+      expect(logs).toContain(error.message);
+      expect(`${error.message}${logs}`).not.toMatch(/cf-ray:|Retry-After:|secret-|\u001b/);
+      expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(["ECONNABORTED", "ETIMEDOUT"])(
+      "reports %s as a timeout without retrying or exposing its cause",
+      async code => {
+        const failure = new AxiosError("secret-timeout-message", code);
+        failure.cause = new Error("secret-timeout-cause");
+        mockedAxios.post.mockRejectedValueOnce(failure);
+
+        const error = await registrationError();
+        const logs = jest
+          .mocked(process.stderr.write)
+          .mock.calls.map(call => call[0])
+          .join("");
+
+        expect(error.code).toBe("DCR_REGISTRATION_TIMEOUT");
+        expect(error.message).toMatch(/timed out/i);
+        expect(error).not.toHaveProperty("cause");
+        expect(error.retryable).toBe(false);
+        expect(logs).toContain(error.message);
+        expect(`${error.message}${JSON.stringify(error)}${logs}`).not.toContain("secret-");
+        expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it.each([
+      new AxiosError("secret-network-message", "ECONNRESET"),
+      new Error("secret-unknown-message"),
+      { code: "ETIMEDOUT", message: "secret-untrusted-message", response: { status: 429 } },
+      null,
+    ])("reports non-timeout and unknown failures without trusting arbitrary error fields", async failure => {
+      mockedAxios.post.mockRejectedValueOnce(failure);
+
+      const error = await registrationError();
+      const logs = jest
+        .mocked(process.stderr.write)
+        .mock.calls.map(call => call[0])
+        .join("");
+
+      expect(error.code).toBe("DCR_REGISTRATION_FAILED");
+      expect(error).not.toHaveProperty("cause");
+      expect(`${error.message}${logs}`).not.toMatch(/secret-|HTTP status:|cf-ray:|Retry-After:/);
+      expect(logs).toContain(error.message);
+      expect(mockedAxios.post).toHaveBeenCalledTimes(1);
     });
   });
 });

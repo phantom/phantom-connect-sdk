@@ -1,5 +1,12 @@
 # @phantom/constants
 
+## 2.0.4
+
+### Patch Changes
+
+- 7513400: Add Robinhood Chain mainnet and testnet identifiers, submission mappings, and default RPC URLs. Preserve Ethereum account derivation for EVM networks.
+  - @phantom/sdk-types@2.0.4
+
 ## 2.0.3
 
 ### Patch Changes

@@ -18,6 +18,7 @@ const logoutAction = createAction({
   description:
     "Phantom Wallet — Log out by clearing the stored session and credentials from disk. " +
     "Does not require an active session. The next tool call will require re-authentication.",
+  requiresAuth: false,
   options: LogoutSchema,
   output: LogoutOutputSchema,
   mcp: {

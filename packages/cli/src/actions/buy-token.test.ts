@@ -500,6 +500,23 @@ describe("buy_token — cross-chain", () => {
   });
 });
 
+describe("buy_token — Arbitrum unsupported", () => {
+  it.each([
+    ["sell", { sellChainId: "eip155:42161", buyChainId: "eip155:8453" }],
+    ["buy", { sellChainId: "solana:mainnet", buyChainId: "eip155:42161" }],
+  ])("rejects Arbitrum as the %s chain before quoting", async (_side, chains) => {
+    const ctx = makeContext();
+    await expect(
+      buyTokenTool.handler(
+        { amount: "100", ...chains, sellTokenIsNative: "true", buyTokenIsNative: "true", execute: "true" },
+        ctx as any,
+      ),
+    ).rejects.toThrow("Arbitrum One (eip155:42161) is not supported for sending transactions");
+
+    expect(ctx.apiClient.post).not.toHaveBeenCalled();
+  });
+});
+
 describe("buy_token — validation", () => {
   it("throws for unsupported sell chain", async () => {
     const ctx = makeContext();

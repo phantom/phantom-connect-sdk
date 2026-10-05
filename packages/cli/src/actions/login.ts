@@ -3,13 +3,9 @@
  *
  * Clears the current session and re-authenticates using the configured
  * auth flow (SSO browser redirect or RFC 8628 device code).
- *
- * This tool is handled specially by the `login` command before the normal
- * root middleware (client/session resolution) runs, so it works even when
- * not yet authenticated.
  */
 
-import { Cli, z } from "incur";
+import { Cli, Errors, z } from "incur";
 import { createAction } from "../utils/actions";
 
 const LoginSchema = z.object({
@@ -31,6 +27,7 @@ const loginAction = createAction({
   description:
     "Re-authenticate with Phantom. Use this to log in for the first time, switch accounts, or refresh an expired session. " +
     "Set displayMode to 'text' if you want the login prompt returned as text instead of trying to open a browser automatically.",
+  requiresAuth: false,
   options: LoginSchema,
   output: LoginOutputSchema,
   run: async ({ options: params, var: vars }) => {
@@ -40,6 +37,9 @@ const loginAction = createAction({
         promptOnly: params.displayMode === "text",
       });
     } catch (error) {
+      if (error instanceof Errors.IncurError) {
+        throw error;
+      }
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Authentication failed: ${message}`);
     }

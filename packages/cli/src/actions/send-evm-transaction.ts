@@ -15,6 +15,7 @@ import { chainIdToNetworkId } from "@phantom/constants";
 import { createAction } from "../utils/actions";
 import { getEthereumAddress, estimateGas, fetchGasPrice, fetchNonce } from "../utils/evm";
 import { resolveEvmRpcUrl } from "../utils/rpc";
+import { assertTransactionNetworkSupported } from "../utils/network";
 import { parseChainId } from "../utils/params";
 import { runSimulation } from "../utils/simulation";
 import {
@@ -83,6 +84,7 @@ const sendEvmTransactionAction = createAction({
     "Signs and broadcasts an EVM transaction using the authenticated embedded wallet. Accepts the standard EVM transaction object format (the same fields used by eth_sendTransaction and returned by DeFi aggregators). Use the chainId field directly from the aggregator response (e.g. 1 for Ethereum mainnet, 8453 for Base, 137 for Polygon). Missing fields such as nonce and gas are automatically fetched from the network. " +
     "SAFETY: By default (no confirmed flag), this tool runs a simulation and returns expected asset changes and warnings WITHOUT sending anything — use this to show the user what will happen and ask for approval. " +
     "Pass confirmed: true only after the user explicitly approves the preview to actually sign and send. " +
+    "Arbitrum (chainId 42161) is not supported and is rejected. " +
     "If the user wants to skip simulation and execute immediately, pass confirmed: true directly — but the two-step flow is recommended for safety. " +
     "Response WITHOUT confirmed: {status: 'pending_confirmation', simulation: {expectedChanges, warnings, block?, advancedDetails?} | null}. " +
     "Response WITH confirmed: true: {hash, networkId, from, to}.",
@@ -106,9 +108,10 @@ const sendEvmTransactionAction = createAction({
     const networkId = chainIdToNetworkId(chainId);
     if (!networkId || !isEthereumChain(networkId)) {
       throw new Error(
-        `Unsupported chainId: ${chainId}. Use a supported EVM chain ID (e.g. 1 for Ethereum, 8453 for Base, 137 for Polygon, 42161 for Arbitrum).`,
+        `Unsupported chainId: ${chainId}. Use a supported EVM chain ID (e.g. 1 for Ethereum, 8453 for Base, 137 for Polygon, 143 for Monad).`,
       );
     }
+    assertTransactionNetworkSupported(networkId);
 
     const walletId = params.walletId ?? session.walletId;
 

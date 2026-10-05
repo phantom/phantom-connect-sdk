@@ -166,6 +166,36 @@ describe("transfer_tokens — Solana", () => {
   });
 });
 
+describe("transfer_tokens — Arbitrum unsupported", () => {
+  it.each([false, true])("rejects eip155:42161 before simulating or signing (confirmed: %s)", async confirmed => {
+    const ctx = makeContext();
+    const { getEthereumAddress } = jest.requireMock("../utils/evm");
+
+    await expect(
+      transferTokensTool.handler(
+        {
+          networkId: "eip155:42161",
+          to: "0x742d35Cc6634C0532925a3b8D4C8db86fB5C4A7E",
+          amount: "1",
+          tokenMint: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+          decimals: 6,
+          confirmed,
+        },
+        ctx as any,
+      ),
+    ).rejects.toThrow("Arbitrum One (eip155:42161) is not supported for sending transactions");
+
+    expect(getEthereumAddress).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(ctx.client.signAndSendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("does not advertise Arbitrum as a supported network", () => {
+    const desc = (transferTokensTool.inputSchema.properties as any).networkId.description as string;
+    expect(desc).toContain('Arbitrum ("eip155:42161") is not supported');
+  });
+});
+
 // ── EVM — native transfer ─────────────────────────────────────────────────────
 
 describe("transfer_tokens — EVM native", () => {

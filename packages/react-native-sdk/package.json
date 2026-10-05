@@ -1,6 +1,6 @@
 {
   "name": "@phantom/react-native-sdk",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Phantom Wallet SDK for React Native and Expo applications",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

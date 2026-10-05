@@ -17,7 +17,12 @@ import {
   getMint,
 } from "@solana/spl-token";
 import { createAction } from "../utils/actions";
-import { normalizeNetworkId, normalizeSwapperChainId } from "../utils/network";
+import {
+  assertTransactionNetworkSupported,
+  normalizeNetworkId,
+  normalizeSwapperChainId,
+  SUPPORTED_EVM_TRANSACTION_NETWORKS_HINT,
+} from "../utils/network";
 import { getSolanaAddress } from "../utils/solana";
 import { getEthereumAddress, estimateGas, fetchGasPrice, fetchNonce, assertEvmAddress } from "../utils/evm";
 import { resolveSolanaRpcUrl, resolveEvmRpcUrl } from "../utils/rpc";
@@ -46,7 +51,7 @@ function encodeErc20Transfer(recipient: string, amount: bigint): string {
 
 const TransferTokensSchema = z.object({
   networkId: Caip2ChainIdSchema.describe(
-    'Network identifier. Solana: "solana:mainnet", "solana:devnet". EVM: "eip155:1" (Ethereum), "eip155:8453" (Base), "eip155:137" (Polygon), "eip155:42161" (Arbitrum), "eip155:143" (Monad).',
+    'Network identifier. Solana: "solana:mainnet", "solana:devnet". EVM: "eip155:1" (Ethereum), "eip155:8453" (Base), "eip155:137" (Polygon), "eip155:143" (Monad). Arbitrum ("eip155:42161") is not supported.',
   ),
   to: z
     .union([EthereumAddressSchema, SolanaAddressSchema])
@@ -106,6 +111,7 @@ const transferTokensAction = createAction({
     "Use this for direct token sends (e.g. 'send 1 SOL to X', 'send 0.01 ETH to Y', 'transfer 100 USDC on Base'). " +
     "For swaps/exchanges (e.g. 'swap USDC for SOL'), use buy_token instead. " +
     "Solana: supports SOL and SPL tokens. EVM: supports native tokens (ETH, MATIC, etc.) and ERC-20 tokens. " +
+    "Arbitrum is not supported: transfers on eip155:42161 are rejected. " +
     "IMPORTANT: The sending wallet must hold enough native token for fees (SOL on Solana, ETH/native on EVM). " +
     "For ERC-20 transfers, provide decimals when using amountUnit: 'ui'. " +
     "TWO-STEP FLOW — always call this tool twice: " +
@@ -137,9 +143,10 @@ const transferTokensAction = createAction({
 
     if (!isSolana && !isEvm) {
       throw new Error(
-        `Unsupported network: ${params.networkId}. Use a Solana network (solana:mainnet, solana:devnet) or EVM chain (eip155:1, eip155:8453, eip155:137, eip155:42161, eip155:143).`,
+        `Unsupported network: ${params.networkId}. Use a Solana network (solana:mainnet, solana:devnet) or EVM chain (${SUPPORTED_EVM_TRANSACTION_NETWORKS_HINT}).`,
       );
     }
+    assertTransactionNetworkSupported(normalizedNetworkId);
 
     const amount = params.amount;
     const walletId = params.walletId ?? session.walletId;

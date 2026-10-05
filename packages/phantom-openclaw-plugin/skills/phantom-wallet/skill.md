@@ -191,7 +191,7 @@ Transfer native tokens or fungible tokens on Solana and EVM chains. **This tool 
 
 **Parameters:**
 
-- `networkId`: Network — Solana (`solana:mainnet`, `solana:devnet`) or EVM (`eip155:1`, `eip155:8453`, `eip155:137`, `eip155:42161`, `eip155:143`)
+- `networkId`: Network — Solana (`solana:mainnet`, `solana:devnet`) or EVM (`eip155:1`, `eip155:8453`, `eip155:137`, `eip155:143`). Arbitrum (`eip155:42161`) is not supported
 - `to`: Recipient — Solana base58 address or EVM `0x`-prefixed address
 - `amount`: Transfer amount (e.g., "0.1", 0.1, "1000000")
 - `amountUnit`: `"ui"` for human-readable units, `"base"` for atomic units (default: `"ui"`)

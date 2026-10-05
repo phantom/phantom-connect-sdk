@@ -465,6 +465,7 @@ export function registerPhantomTools(api: OpenClawApi, pluginSession: PluginSess
             }
 
             await pluginSession.initialize();
+            await manager.initialize();
           }
 
           const sessionData = pluginSession.getSession();
