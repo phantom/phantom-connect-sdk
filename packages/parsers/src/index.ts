@@ -100,8 +100,14 @@ function parseSolanaTransactionToBase64Url(transaction: any): ParsedTransaction 
   // Check if it's a @solana/kit Transaction (has messageBytes)
   if (transaction?.messageBytes != null) {
     // @solana/kit Transaction
+
+    /**
+     * Use getTransactionEncoder to produce the canonical wire format (compact-u16 signature array + message) rather than bare messageBytes. 
+     * Sending messageBytes alone causes the KMS backend to panic when it reads the message header as a signature count.
+     */
+    const serialized = getTransactionEncoder().encode(transaction)
     return {
-      parsed: base64urlEncode(transaction.messageBytes),
+      parsed: base64urlEncode(new Uint8Array(serialized)),
       originalFormat: "@solana/kit",
     };
   }

@@ -1,8 +1,15 @@
 import { parseToKmsTransaction, validateEip712TypedData } from "./index";
 import { base64urlDecode } from "@phantom/base64url";
 
+jest.mock("@solana/transactions", () => ({
+  ...jest.requireActual("@solana/transactions"),
+  getTransactionEncoder: jest.fn().mockReturnValue({
+    encode: jest.fn().mockReturnValue(new Uint8Array([0, 1, 2, 3, 4, 5])),
+  }),
+}));
+
 describe("Solana Transaction Parser", () => {
-  it("should parse @solana/kit transaction with messageBytes", async () => {
+  it("should parse @solana/kit transaction with canonical wire format", async () => {
     const mockKitTransaction = {
       messageBytes: new Uint8Array([1, 2, 3, 4, 5]),
     };
@@ -13,8 +20,8 @@ describe("Solana Transaction Parser", () => {
     expect(result.parsed).toBeDefined();
 
     // Verify the encoded data matches
-    const decoded = base64urlDecode(result.parsed);
-    expect(decoded).toEqual(mockKitTransaction.messageBytes);
+    const decoded = base64urlDecode(result.parsed!);
+    expect(decoded).toEqual(new Uint8Array([0, 1, 2, 3, 4, 5]));
   });
 
   it("should parse @solana/web3.js transaction with serialize method", async () => {
