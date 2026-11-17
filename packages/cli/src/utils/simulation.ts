@@ -5,22 +5,21 @@ import { z } from "incur";
 
 import type { ToolContext } from "../tools/types";
 import { normalizeSwapperChainId } from "./network";
+import { SimulationRequestParamsSchema, type SimulationParams } from "./simulation-params";
 
 export const DEFAULT_SIMULATION_URL = "https://agents.phantom.app";
 
 export interface SimulationRequestBody {
   type: "transaction" | "message";
   chainId: string;
-  params: Record<string, unknown>;
+  params: SimulationParams;
   userAccount?: string;
   url?: string;
   context?: string;
 }
 
 /**
- * Zod schemas for multichain-scanner `ScannedResult` and nested types, aligned with Rust `serde`
- * in `projects/multichain-scanner/src/types.rs` and per-chain advanced-detail types under
- * `projects/multichain-scanner/src/service/` (evm, solana, sui, bitcoin).
+ * Schemas for the simulation response and its per-chain details.
  */
 
 // ---------------------------------------------------------------------------
@@ -404,8 +403,10 @@ export async function runSimulation(
   const { logger, apiClient } = context;
 
   const normalizedChainId = normalizeSwapperChainId(body.chainId);
+  const { params } = SimulationRequestParamsSchema.parse(body);
+
   // The simulation API requires url to be a non-empty string; fall back to a stable MCP origin.
-  const requestBody = { ...body, chainId: normalizedChainId, url: body.url || DEFAULT_SIMULATION_URL };
+  const requestBody = { ...body, params, chainId: normalizedChainId, url: body.url || DEFAULT_SIMULATION_URL };
 
   logger.debug(`Running simulation on ${normalizedChainId}`);
 

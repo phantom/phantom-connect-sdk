@@ -278,6 +278,7 @@ describe("SessionManager", () => {
         walletsApiBaseUrl: "https://api.phantom.app/v1/wallets",
         appId: "phantom-mcp",
         sessionDir: "/tmp/test-phantom-mcp",
+        kmsHeaders: expect.objectContaining({ "x-phantom-platform": "ext-sdk", "x-phantom-client": "mcp" }),
       },
       expect.anything(),
     );

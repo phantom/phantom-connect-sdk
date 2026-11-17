@@ -157,8 +157,6 @@ const sendEvmTransactionAction = createAction({
                   ...(data !== undefined ? { data } : {}),
                   ...(gasParam !== undefined ? { gas: gasParam } : {}),
                   ...(gasPrice !== undefined ? { gasPrice } : {}),
-                  ...(maxFeePerGas !== undefined ? { maxFeePerGas } : {}),
-                  ...(maxPriorityFeePerGas !== undefined ? { maxPriorityFeePerGas } : {}),
                   ...(params.nonce !== undefined ? { nonce: params.nonce } : {}),
                   chainId: `0x${chainId.toString(16)}`,
                   ...(txType !== undefined ? { type: txType } : {}),

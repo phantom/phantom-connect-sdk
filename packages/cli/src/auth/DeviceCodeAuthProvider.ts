@@ -1,6 +1,7 @@
 /* eslint-disable security/detect-non-literal-fs-filename */
 
 import { execFile } from "child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -42,6 +43,11 @@ export type DeviceCodeAuthProviderOptions = {
   walletsApiBaseUrl: string;
   appId: string;
   sessionDir: string;
+  /**
+   * Sent with wallet provisioning calls. Must include `x-phantom-platform: ext-sdk`: without it,
+   * Cloudflare blocks the call with a 403 from low bot-score (datacenter) networks.
+   */
+  kmsHeaders: Record<string, string>;
 };
 
 export type DeviceCodeAuthResult = {
@@ -59,7 +65,11 @@ export class DeviceCodeAuthProvider {
     private readonly logger: Logger = new Logger("DeviceCodeAuthProvider"),
   ) {}
 
-  async authenticate(displayOptions: DeviceCodeAuthDisplayOptions = {}): Promise<DeviceCodeAuthResult> {
+  /** Aborting `signal` stops the device code request and the wait for approval. */
+  async authenticate(
+    displayOptions: DeviceCodeAuthDisplayOptions = {},
+    signal?: AbortSignal,
+  ): Promise<DeviceCodeAuthResult> {
     if (!this.stamper.getKeyInfo()) {
       await this.stamper.init();
     }
@@ -73,25 +83,19 @@ export class DeviceCodeAuthProvider {
     const clientConfig = await this.resolveClientConfig();
     this.logger.info(`Resolved device auth client_id: ${clientConfig.client_id}`);
     const nonce = await _deriveNonce(keyPair, "");
-    const deviceAuth = await this.requestDeviceCode(clientConfig.client_id, nonce);
+    signal?.throwIfAborted();
+    const deviceAuth = await this.requestDeviceCode(clientConfig.client_id, nonce, signal);
 
-    const promptText = await this.displayDeviceCode(
-      deviceAuth,
-      clientConfig.client_id,
-      keyInfo.publicKey,
-      displayOptions,
-    );
-    if (displayOptions.promptOnly && promptText) {
-      throw new Error(promptText);
-    }
-
+    await this.displayDeviceCode(deviceAuth, clientConfig.client_id, keyInfo.publicKey, displayOptions);
     const tokens = await this.pollForTokens(
       clientConfig.client_id,
       clientConfig.client_secret,
       deviceAuth.device_code,
       deviceAuth.interval,
       deviceAuth.expires_in,
+      signal,
     );
+    signal?.throwIfAborted();
 
     if (!tokens.id_token) {
       throw new Error(
@@ -113,6 +117,7 @@ export class DeviceCodeAuthProvider {
     const kms = new Auth2KmsRpcClient(this.stamper, {
       apiBaseUrl: this.options.walletsApiBaseUrl,
       appId: clientConfig.client_id,
+      headers: this.options.kmsHeaders,
     });
 
     const walletId = (
@@ -180,7 +185,11 @@ export class DeviceCodeAuthProvider {
     return registration;
   }
 
-  private async requestDeviceCode(clientId: string, nonce: string): Promise<DeviceAuthorizationResponse> {
+  private async requestDeviceCode(
+    clientId: string,
+    nonce: string,
+    signal?: AbortSignal,
+  ): Promise<DeviceAuthorizationResponse> {
     const endpoint = `${this.options.authBaseUrl}/oauth2/device/auth`;
     const payload = {
       client_id: clientId,
@@ -195,6 +204,7 @@ export class DeviceCodeAuthProvider {
         {
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           timeout: 30000,
+          signal,
         },
       );
       return response.data;
@@ -210,7 +220,7 @@ export class DeviceCodeAuthProvider {
     clientId: string,
     publicKey: string,
     displayOptions: DeviceCodeAuthDisplayOptions = {},
-  ): Promise<string | null> {
+  ): Promise<void> {
     const { user_code } = deviceAuth;
     const urlToOpen = `${this.options.connectBaseUrl}/device-connect?user_code=${encodeURIComponent(user_code)}&client_id=${encodeURIComponent(clientId)}&public_key=${encodeURIComponent(publicKey)}`;
     this.logger.info(`Generated device connect URL: ${urlToOpen}`);
@@ -247,13 +257,8 @@ export class DeviceCodeAuthProvider {
       line("║  Waiting for approval...                     ║");
       line("╚══════════════════════════════════════════════╝");
       line("");
-      return null;
+      return;
     }
-
-    const hyperlink = `\x1b]8;;${urlToOpen}\x07${urlToOpen}\x1b]8;;\x07`;
-    const qr = await new Promise<string>(resolve => {
-      qrcode.generate(urlToOpen, { small: true }, resolve);
-    });
 
     if (displayOptions.onPrompt) {
       const promptText = [
@@ -265,8 +270,13 @@ export class DeviceCodeAuthProvider {
         `Code: ${user_code}`,
       ].join("\n");
       await displayOptions.onPrompt(promptText);
-      return promptText;
+      return;
     }
+
+    const hyperlink = `\x1b]8;;${urlToOpen}\x07${urlToOpen}\x1b]8;;\x07`;
+    const qr = await new Promise<string>(resolve => {
+      qrcode.generate(urlToOpen, { small: true }, resolve);
+    });
 
     line("");
     line("╔══════════════════════════════════════════════╗");
@@ -284,7 +294,6 @@ export class DeviceCodeAuthProvider {
     process.stderr.write(qr);
     line(hyperlink);
     line("");
-    return null;
   }
 
   private async pollForTokens(
@@ -293,6 +302,7 @@ export class DeviceCodeAuthProvider {
     deviceCode: string,
     intervalSeconds: number,
     expiresIn: number,
+    signal?: AbortSignal,
   ): Promise<TokenResponse> {
     const endpoint = `${this.options.authBaseUrl}/oauth2/token`;
     const deadline = Date.now() + expiresIn * 1000;
@@ -300,13 +310,15 @@ export class DeviceCodeAuthProvider {
     const isPublicClient = !clientSecret || clientSecret.length === 0;
 
     while (Date.now() < deadline) {
-      await sleep(interval * 1000);
+      await sleep(Math.min(interval * 1000, deadline - Date.now()), undefined, { signal });
+      if (Date.now() >= deadline) {
+        break;
+      }
 
       const params: Record<string, string> = {
         grant_type: "urn:ietf:params:oauth:grant-type:device_code",
         device_code: deviceCode,
         // Restrict the token audience to the agent's app wallet tag.
-        // Required by Kuba's forthcoming PR which enforces aud restrictions.
         resource: `urn:phantom:wallet-tag:${clientId}`,
       };
       if (isPublicClient) {
@@ -324,6 +336,7 @@ export class DeviceCodeAuthProvider {
         const response = await axios.post<TokenResponse>(endpoint, new URLSearchParams(params).toString(), {
           headers,
           timeout: 30000,
+          signal,
         });
         return response.data;
       } catch (error) {
@@ -395,8 +408,4 @@ export async function persistDcrRegistration(
     const msg = error instanceof Error ? error.message : String(error);
     logger.warn(`Failed to cache agent registration: ${msg} — registration will not persist across restarts`);
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }

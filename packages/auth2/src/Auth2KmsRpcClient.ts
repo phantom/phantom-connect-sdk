@@ -22,6 +22,8 @@ const DEFAULT_KMS_API_VERSION = "2025-11-24";
 export type Auth2KmsClientOptions = {
   apiBaseUrl: string;
   appId: string;
+  /** Sent on every request; auth, app ID, and stamp headers take precedence. */
+  headers?: Record<string, string>;
 };
 
 export type Auth2KmsGetWalletWithTagArgs = {
@@ -58,6 +60,7 @@ export class Auth2KmsRpcClient {
       await this.stamper.maybeRefreshTokens();
 
       config.headers = config.headers || {};
+      Object.assign(config.headers, options.headers);
       config.headers["x-app-id"] = options.appId;
       config.headers["x-api-version"] = DEFAULT_KMS_API_VERSION;
 
@@ -154,9 +157,12 @@ export class Auth2KmsRpcClient {
   }
 }
 
+const CF_RAY = /^[0-9a-f]{16}(?:-[A-Z]{3})?$/i;
+
 type KmsHttpResponse = {
   status: number;
   data: unknown;
+  headers: unknown;
 };
 
 function getHttpResponse(error: unknown): KmsHttpResponse | null {
@@ -164,17 +170,24 @@ function getHttpResponse(error: unknown): KmsHttpResponse | null {
     return null;
   }
 
-  const response = (error as { response?: { status?: unknown; data?: unknown } }).response;
+  const response = (error as { response?: { status?: unknown; data?: unknown; headers?: unknown } }).response;
   if (!response || typeof response.status !== "number") {
     return null;
   }
 
-  return { status: response.status, data: response.data };
+  return { status: response.status, data: response.data, headers: response.headers };
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 /**
  * MCP returns only `error.message`. Keep ErrorResponse fields and drop request
  * headers, tokens, stamps, and the Axios config.
+ *
+ * Cloudflare WAF blocks answer with `{ message, id }` instead of ErrorResponse;
+ * `id` names the rule and `cf-ray` locates the event.
  */
 function formatKmsHttpError(error: unknown): unknown {
   const response = getHttpResponse(error);
@@ -184,22 +197,34 @@ function formatKmsHttpError(error: unknown): unknown {
 
   let detail: string | undefined;
   let requestId: string | undefined;
+  let blockId: string | undefined;
   if (response.data && typeof response.data === "object") {
-    const body = response.data as Partial<ErrorResponse>;
-    if (typeof body.error === "string" && body.error.length > 0) {
-      detail = body.error;
-    }
-    if (typeof body.requestId === "string" && body.requestId.length > 0) {
-      requestId = body.requestId;
-    }
+    const body = response.data as Partial<ErrorResponse> & { message?: unknown; id?: unknown };
+    detail = nonEmptyString(body.error) ?? nonEmptyString(body.message);
+    requestId = nonEmptyString(body.requestId);
+    blockId = nonEmptyString(body.id);
+  }
+
+  const headers = response.headers as Record<string, unknown> | null | undefined;
+  const cfRay = nonEmptyString(headers?.["cf-ray"]);
+
+  const references: Array<string> = [];
+  if (requestId) {
+    references.push(`requestId=${requestId}`);
+  }
+  if (blockId) {
+    references.push(`id=${blockId}`);
+  }
+  if (cfRay && CF_RAY.test(cfRay)) {
+    references.push(`cf-ray=${cfRay}`);
   }
 
   let message = `KMS HTTP ${response.status}`;
   if (detail) {
     message += `: ${detail}`;
   }
-  if (requestId) {
-    message += ` (requestId=${requestId})`;
+  if (references.length > 0) {
+    message += ` (${references.join(", ")})`;
   }
   return new Error(message);
 }

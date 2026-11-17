@@ -374,7 +374,7 @@ describe("simulate_transaction — validation errors", () => {
       issues: expect.arrayContaining([
         expect.objectContaining({
           path: ["params"],
-          message: "Invalid input: expected record, received undefined",
+          code: "invalid_union",
         }),
       ]),
     });

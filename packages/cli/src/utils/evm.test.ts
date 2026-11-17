@@ -1,4 +1,4 @@
-import { estimateGas, fetchGasPrice, getEthereumAddress, assertEvmAddress } from "./evm";
+import { estimateGas, fetchGasPrice, fetchNonce, getEthereumAddress, assertEvmAddress } from "./evm";
 import { AddressType } from "@phantom/client";
 
 // Suppress stderr logging during tests
@@ -152,5 +152,51 @@ describe("fetchGasPrice", () => {
   it("should throw on HTTP error", async () => {
     mockFetch.mockResolvedValue({ ok: false, status: 502 });
     await expect(fetchGasPrice("https://rpc.example.com")).rejects.toThrow("Failed to fetch gas price: HTTP 502");
+  });
+});
+
+describe("EVM RPC client identification", () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it.each([
+    ["nonce", () => fetchNonce("https://node-proxy.phantom.app/v1/chain/ethereum/network/mainnet", "0xabc")],
+    ["gas price", () => fetchGasPrice("https://node-proxy.phantom.app/v1/chain/base/network/mainnet")],
+    ["gas estimate", () => estimateGas("https://node-proxy.phantom.app/v1/chain/base/network/mainnet", {})],
+  ])("identifies %s reads as SDK requests", async (_label, read) => {
+    const mockFetch = jest.fn().mockImplementation((_url, options) => {
+      const headers = new Headers(options.headers);
+      const identified = headers.get("x-phantom-platform") === "ext-sdk" && headers.get("x-phantom-client") === "mcp";
+      return Promise.resolve({ ok: identified, status: identified ? 200 : 403, json: async () => ({ result: "0x1" }) });
+    });
+    global.fetch = mockFetch;
+
+    await expect(read()).resolves.toBe("0x1");
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-phantom-platform": "ext-sdk", "x-phantom-client": "mcp" },
+      }),
+    );
+  });
+
+  it.each([
+    "https://rpc.example.com",
+    "https://node-proxy.phantom.app.example.com",
+    "http://node-proxy.phantom.app",
+    "https://node-proxy.phantom.app:8443",
+  ])("does not send SDK identification to %s", async url => {
+    const mockFetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ result: "0x0" }) });
+    global.fetch = mockFetch;
+
+    await expect(fetchNonce(url, "0xabc")).resolves.toBe("0x0");
+    expect(mockFetch).toHaveBeenCalledWith(
+      url,
+      expect.objectContaining({ headers: { "Content-Type": "application/json" } }),
+    );
   });
 });

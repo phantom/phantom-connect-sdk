@@ -246,3 +246,15 @@ describe("sendApprovalIfNeeded", () => {
     await expect(sendApprovalIfNeeded(baseOptions())).rejects.toThrow("Failed to RLP-encode ERC-20 approval");
   });
 });
+
+it("identifies allowance reads to the SDK RPC service", async () => {
+  mockFetch.mockImplementationOnce((_url, options) => {
+    const headers = new Headers(options.headers);
+    const identified = headers.get("x-phantom-platform") === "ext-sdk" && headers.get("x-phantom-client") === "mcp";
+    return Promise.resolve({ ok: identified, status: identified ? 200 : 403, json: async () => ({ result: "0x0" }) });
+  });
+
+  await expect(
+    fetchERC20Allowance("https://node-proxy.phantom.app/v1/chain/base/network/mainnet", TOKEN, OWNER, SPENDER),
+  ).resolves.toBe(0n);
+});

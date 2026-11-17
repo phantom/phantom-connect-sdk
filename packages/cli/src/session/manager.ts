@@ -20,6 +20,18 @@ import { Logger } from "../utils/logger";
 import * as packageJson from "../../package.json";
 
 /**
+ * A login awaiting approval. `prompt` is set when the caller that started it shows the prompt
+ * itself. Once the prompt has been handed over, that caller stops waiting, so the `outcome`
+ * is kept for its next call.
+ */
+type PendingSession = {
+  controller: AbortController;
+  finished: Promise<void>;
+  prompt?: Promise<string>;
+  outcome?: "approved" | "failed";
+};
+
+/**
  * Configuration options for SessionManager
  */
 export interface SessionManagerOptions {
@@ -68,6 +80,8 @@ export class SessionManager implements ISessionManager<SessionData> {
   private readonly logger: Logger;
 
   private session: SessionData | null = null;
+  /** The login in flight, or one whose outcome is still owed to the caller that took its prompt. */
+  private pendingSession: PendingSession | null = null;
   private client: PhantomClient | null = null;
   private stamper: InstanceType<typeof Auth2Stamper> | null = null;
 
@@ -285,9 +299,21 @@ export class SessionManager implements ISessionManager<SessionData> {
   /**
    * Resets the session by clearing stored data and re-authenticating
    *
+   * A caller that shows the prompt itself (`onPrompt`) and has already been given one is
+   * following that login, so it gets the login's progress instead of starting over: the prompt
+   * again while approval is pending, an approval until the session changes, a failure once.
+   *
    * @throws Error if authentication fails
    */
   async resetSession(displayOptions?: DeviceCodeAuthDisplayOptions): Promise<void> {
+    const pending = this.pendingSession;
+    if (displayOptions?.onPrompt && pending?.prompt) {
+      if (pending.outcome === "failed") {
+        this.pendingSession = null;
+      }
+      return pending.outcome ? pending.finished : this.authenticate(displayOptions);
+    }
+
     this.logger.info("Resetting session");
 
     await this.clearSession();
@@ -297,6 +323,10 @@ export class SessionManager implements ISessionManager<SessionData> {
   }
 
   private async clearSession(): Promise<void> {
+    // Cancel a login awaiting approval and wait for it to stop, so that it cannot save a session after this.
+    this.pendingSession?.controller.abort(new Error("Authentication was cancelled by a newer login or logout."));
+    await this.pendingSession?.finished.catch(() => {});
+    this.pendingSession = null;
     try {
       this.storage.deleteStrict();
       await this.clearDeviceCodeAuthState();
@@ -314,13 +344,50 @@ export class SessionManager implements ISessionManager<SessionData> {
    * @throws Error if authentication fails
    */
   private async authenticate(displayOptions?: DeviceCodeAuthDisplayOptions): Promise<void> {
+    const onPrompt = displayOptions?.onPrompt;
+    if (this.pendingSession && !this.pendingSession.outcome) {
+      // Only one login runs at a time: later callers wait for the one awaiting approval.
+      if (onPrompt) {
+        void this.pendingSession.prompt?.then(onPrompt).catch(() => {});
+      }
+      return this.pendingSession.finished;
+    }
     this.logger.info(`Starting authentication (flow: ${this.authFlow})`);
 
-    if (this.authFlow === "device-code") {
-      await this.authenticateWithDeviceFlow(displayOptions);
-    } else {
-      await this.authenticateWithSso();
-    }
+    const controller = new AbortController();
+    const { signal } = controller;
+    let prompted = false;
+    let showPrompt!: (prompt: string) => void;
+    const prompt = onPrompt && new Promise<string>(resolve => (showPrompt = resolve));
+
+    const authenticating = async () => {
+      let outcome: PendingSession["outcome"] = "failed";
+      try {
+        if (this.authFlow === "device-code") {
+          const recordPrompt = async (text: string) => {
+            prompted = true;
+            showPrompt(text);
+            await onPrompt?.(text);
+          };
+          await this.authenticateWithDeviceFlow({ ...displayOptions, onPrompt: onPrompt && recordPrompt }, signal);
+        } else {
+          await this.authenticateWithSso();
+        }
+        signal.throwIfAborted();
+        outcome = "approved";
+      } catch (error) {
+        throw signal.aborted ? signal.reason : error;
+      } finally {
+        if (prompted && !signal.aborted) {
+          pending.outcome = outcome;
+        } else {
+          this.pendingSession = null;
+        }
+      }
+    };
+    const pending: PendingSession = { controller, prompt, finished: authenticating() };
+    this.pendingSession = pending;
+    return pending.finished;
   }
 
   /**
@@ -362,7 +429,10 @@ export class SessionManager implements ISessionManager<SessionData> {
    *
    * @throws Error if device flow fails
    */
-  private async authenticateWithDeviceFlow(displayOptions?: DeviceCodeAuthDisplayOptions): Promise<void> {
+  private async authenticateWithDeviceFlow(
+    displayOptions?: DeviceCodeAuthDisplayOptions,
+    signal?: AbortSignal,
+  ): Promise<void> {
     const stamper = new Auth2Stamper(new NodeFileAuth2StamperStorage(this.storage.sessionDir), {
       authApiBaseUrl: this.authBaseUrl,
       clientId: this.resolveAppId(),
@@ -377,11 +447,12 @@ export class SessionManager implements ISessionManager<SessionData> {
         walletsApiBaseUrl: this.walletsApiBaseUrl,
         appId: this.appId,
         sessionDir: this.storage.sessionDir,
+        kmsHeaders: { ...this.createMcpAnalyticsHeaders(this.resolveAppId()) },
       },
       this.logger.child("DeviceCodeAuthProvider"),
     );
 
-    const result = await deviceFlow.authenticate(displayOptions);
+    const result = await deviceFlow.authenticate(displayOptions, signal);
     this.logger.info("Device authorization flow completed successfully");
 
     const now = Math.floor(Date.now() / 1000);
@@ -426,6 +497,10 @@ export class SessionManager implements ISessionManager<SessionData> {
         }
         this.session = null;
         this.client = null;
+        if (this.pendingSession && !this.pendingSession.outcome) {
+          // This is the login that just completed: retrying from inside it would wait on itself.
+          throw new Error("Device-code credentials are missing. Log in again.");
+        }
         await this.authenticate();
         return;
       }
@@ -492,6 +567,10 @@ export class SessionManager implements ISessionManager<SessionData> {
       }
       this.session = null;
       this.client = null;
+      if (this.pendingSession && !this.pendingSession.outcome) {
+        // This is the login that just completed: retrying from inside it would wait on itself.
+        throw new Error("Device-code credentials are missing. Log in again.");
+      }
       await this.authenticate();
       return;
     }

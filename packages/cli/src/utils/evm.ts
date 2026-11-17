@@ -5,6 +5,7 @@
 
 import { AddressType } from "@phantom/client";
 import type { ToolContext } from "../tools/types";
+import { getRpcHeaders } from "./rpc";
 
 /**
  * Asserts that a string is a valid EVM address (0x-prefixed, exactly 40 hex chars).
@@ -48,7 +49,7 @@ export async function getEthereumAddress(
 async function rpcPost<T>(rpcUrl: string, label: string, method: string, params: unknown[]): Promise<T> {
   const response = await fetch(rpcUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getRpcHeaders(rpcUrl),
     body: JSON.stringify({ jsonrpc: "2.0", method, params, id: 1 }),
     signal: AbortSignal.timeout(10_000),
   });

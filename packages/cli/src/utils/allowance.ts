@@ -9,13 +9,14 @@ import type { NetworkId, PhantomClient } from "@phantom/client";
 import { parseToKmsTransaction } from "@phantom/parsers";
 import { estimateGas } from "./evm";
 import type { Logger } from "./logger";
+import { getRpcHeaders } from "./rpc";
 
 // ── RPC helper (local, mirrors the pattern in evm.ts) ───────────────────────
 
 async function ethCall(rpcUrl: string, to: string, data: string): Promise<string> {
   const response = await fetch(rpcUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getRpcHeaders(rpcUrl),
     body: JSON.stringify({
       jsonrpc: "2.0",
       method: "eth_call",

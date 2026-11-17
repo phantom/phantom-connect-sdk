@@ -1,5 +1,6 @@
 import * as childProcess from "child_process";
 import axios from "axios";
+import { Auth2KmsRpcClient } from "@phantom/auth2";
 import { DeviceCodeAuthProvider } from "./DeviceCodeAuthProvider";
 
 const mockListPendingMigrations = jest.fn();
@@ -120,6 +121,7 @@ describe("DeviceCodeAuthProvider", () => {
       walletsApiBaseUrl: "https://api.phantom.app/v1/wallets",
       appId: "phantom-mcp",
       sessionDir: "/tmp/test-phantom-mcp",
+      kmsHeaders: { "x-phantom-platform": "ext-sdk" },
     });
 
     await expect(provider.authenticate()).resolves.toEqual({
@@ -145,6 +147,11 @@ describe("DeviceCodeAuthProvider", () => {
         clientId: "env-client-id",
       }),
     );
+    expect(Auth2KmsRpcClient).toHaveBeenCalledWith(stamper, {
+      apiBaseUrl: "https://api.phantom.app/v1/wallets",
+      appId: "env-client-id",
+      headers: { "x-phantom-platform": "ext-sdk" },
+    });
     expect(mockGetOrCreateAppWallet).not.toHaveBeenCalled();
   });
 
@@ -180,6 +187,7 @@ describe("DeviceCodeAuthProvider", () => {
       walletsApiBaseUrl: "https://api.phantom.app/v1/wallets",
       appId: "phantom-mcp",
       sessionDir: "/tmp/test-phantom-mcp",
+      kmsHeaders: { "x-phantom-platform": "ext-sdk" },
     });
 
     await expect(provider.authenticate()).rejects.toThrow("Device auth token is missing organization_id");
@@ -223,6 +231,7 @@ describe("DeviceCodeAuthProvider", () => {
       walletsApiBaseUrl: "https://api.phantom.app/v1/wallets",
       appId: "phantom-mcp",
       sessionDir: "/tmp/test-phantom-mcp",
+      kmsHeaders: { "x-phantom-platform": "ext-sdk" },
     });
 
     await expect(provider.authenticate()).resolves.toEqual({
@@ -277,6 +286,7 @@ describe("DeviceCodeAuthProvider", () => {
       walletsApiBaseUrl: "https://api.phantom.app/v1/wallets",
       appId: "phantom-mcp",
       sessionDir: "/tmp/test-phantom-mcp",
+      kmsHeaders: { "x-phantom-platform": "ext-sdk" },
     });
 
     await provider.authenticate({ openBrowser: false, onPrompt });

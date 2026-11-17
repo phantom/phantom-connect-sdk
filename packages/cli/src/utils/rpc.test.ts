@@ -3,9 +3,18 @@ import {
   validateHttpsUrl,
   resolveSolanaRpcUrl,
   resolveEvmRpcUrl,
+  getRpcHeaders,
   DEFAULT_SOLANA_RPC_URLS,
   DEFAULT_EVM_RPC_URLS,
 } from "./rpc";
+
+it.each(["ethereum", "base", "solana"])("identifies node-proxy requests for %s as SDK traffic", chain => {
+  expect(getRpcHeaders(`https://node-proxy.phantom.app/v1/chain/${chain}/network/mainnet`)).toEqual({
+    "Content-Type": "application/json",
+    "x-phantom-platform": "ext-sdk",
+    "x-phantom-client": "mcp",
+  });
+});
 
 // --- validateHttpsUrl ---
 

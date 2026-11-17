@@ -1,4 +1,4 @@
-import { NetworkId } from "@phantom/constants";
+import { ANALYTICS_HEADERS, NetworkId } from "@phantom/constants";
 
 /**
  * RPC URL resolution utilities.
@@ -71,4 +71,14 @@ export function resolveEvmRpcUrl(networkId: string): string {
     );
   }
   return defaultUrl;
+}
+
+export function getRpcHeaders(rpcUrl: string): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    ...(new URL(rpcUrl).origin === "https://node-proxy.phantom.app" && {
+      [ANALYTICS_HEADERS.PLATFORM]: "ext-sdk",
+      [ANALYTICS_HEADERS.CLIENT]: "mcp",
+    }),
+  };
 }

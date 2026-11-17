@@ -3,6 +3,8 @@
  */
 
 import { AddressType } from "@phantom/client";
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, unpackMint } from "@solana/spl-token";
+import type { Connection, PublicKey } from "@solana/web3.js";
 import type { ToolContext } from "../tools/types";
 
 /**
@@ -28,4 +30,22 @@ export async function getSolanaAddress(
   }
 
   return solanaAddress.address;
+}
+
+export async function getMintDecimals(connection: Connection, mint: PublicKey): Promise<number> {
+  const account = await connection.getAccountInfo(mint, "confirmed");
+  if (!account) {
+    throw new Error(`Token mint ${mint.toBase58()} not found`);
+  }
+
+  const notMintError = new Error(`${mint.toBase58()} is not an SPL Token or Token-2022 mint`);
+  if (!account.owner.equals(TOKEN_PROGRAM_ID) && !account.owner.equals(TOKEN_2022_PROGRAM_ID)) {
+    throw notMintError;
+  }
+
+  try {
+    return unpackMint(mint, account, account.owner).decimals;
+  } catch {
+    throw notMintError;
+  }
 }

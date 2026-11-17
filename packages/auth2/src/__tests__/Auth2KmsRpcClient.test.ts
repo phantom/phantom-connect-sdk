@@ -29,7 +29,7 @@ jest.mock("axios", () => ({
 
 import axios from "axios";
 import { KMSRPCApi } from "@phantom/openapi-wallet-service";
-import { Auth2KmsRpcClient } from "../index";
+import { Auth2KmsRpcClient, type Auth2KmsClientOptions } from "../index";
 
 function makeStamper(
   overrides: Partial<{
@@ -83,10 +83,10 @@ describe("Auth2KmsRpcClient", () => {
     };
   }
 
-  function makeClient(stamperOverrides = {}) {
+  function makeClient(stamperOverrides = {}, options: Auth2KmsClientOptions = kmsOptions) {
     capturedRequestInterceptor = null;
     (axios.create as jest.Mock).mockReturnValueOnce(makeAxiosFake());
-    return new Auth2KmsRpcClient(makeStamper(stamperOverrides) as never, kmsOptions);
+    return new Auth2KmsRpcClient(makeStamper(stamperOverrides) as never, options);
   }
 
   beforeEach(() => {
@@ -111,6 +111,28 @@ describe("Auth2KmsRpcClient", () => {
       expect(headers["x-phantom-stamp"]).toBe("mock-stamp");
       expect(stamper.maybeRefreshTokens).toHaveBeenCalledTimes(1);
       expect(stamper.stamp).toHaveBeenCalledWith(expect.objectContaining({ data: expect.anything() }));
+    });
+
+    it("sends extra headers without letting them replace auth, app ID, or stamp headers", async () => {
+      makeClient(makeStamper(), {
+        ...kmsOptions,
+        headers: {
+          "x-phantom-platform": "ext-sdk",
+          "x-phantom-client": "mcp",
+          "x-app-id": "spoofed-app",
+          authorization: "Bearer spoofed",
+          "x-phantom-stamp": "spoofed-stamp",
+        },
+      });
+
+      const result = await capturedRequestInterceptor!({ data: "{}", headers: {} as Record<string, string> });
+
+      const headers = result["headers"] as Record<string, string>;
+      expect(headers["x-phantom-platform"]).toBe("ext-sdk");
+      expect(headers["x-phantom-client"]).toBe("mcp");
+      expect(headers["x-app-id"]).toBe("app-123");
+      expect(headers["authorization"]).toBe("Bearer mock-token");
+      expect(headers["x-phantom-stamp"]).toBe("mock-stamp");
     });
 
     it("stamps an empty string body when config.data is undefined", async () => {
@@ -454,6 +476,36 @@ describe("Auth2KmsRpcClient", () => {
       expect(thrown).toBeInstanceOf(Error);
       expect((thrown as Error).message).toBe("KMS HTTP 500: Internal server error");
       expect((thrown as Error).message).not.toMatch(/requestId=/);
+    });
+
+    it("names the Cloudflare block id and cf-ray for a WAF 403", async () => {
+      mockPostKmsRpc.mockRejectedValueOnce(
+        Object.assign(new Error("Request failed with status code 403"), {
+          response: {
+            status: 403,
+            data: { success: false, message: "error", id: "ca7bc294-d1a4-4036-8da2-233d51ca2039" },
+            headers: { "cf-ray": "8d1e2f3a4b5c6d7e-AMS" },
+          },
+        }),
+      );
+      const client = makeClient();
+
+      await expect(client.createWallet(walletArgs)).rejects.toThrow(
+        "KMS HTTP 403: error (id=ca7bc294-d1a4-4036-8da2-233d51ca2039, cf-ray=8d1e2f3a4b5c6d7e-AMS)",
+      );
+    });
+
+    it("drops a malformed cf-ray header", async () => {
+      mockPostKmsRpc.mockRejectedValueOnce(
+        Object.assign(new Error("Request failed with status code 403"), {
+          response: { status: 403, data: {}, headers: { "cf-ray": "Bearer secret-token" } },
+        }),
+      );
+      const client = makeClient();
+
+      const thrown = await client.createWallet(walletArgs).catch((error: unknown) => error);
+
+      expect((thrown as Error).message).toBe("KMS HTTP 403");
     });
 
     it("preserves a non-HTTP error without rewriting it", async () => {

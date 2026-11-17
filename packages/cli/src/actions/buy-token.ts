@@ -6,10 +6,9 @@
 import { Cli, z } from "incur";
 import { isSolanaChain } from "@phantom/utils";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { getMint } from "@solana/spl-token";
 import { createAction } from "../utils/actions";
 import { assertTransactionNetworkSupported, normalizeSwapperChainId } from "../utils/network";
-import { getSolanaAddress } from "../utils/solana";
+import { getMintDecimals, getSolanaAddress } from "../utils/solana";
 import { getEthereumAddress } from "../utils/evm";
 import { parseBaseUnitAmount, parseUiAmount, requirePositiveAmount } from "../utils/amount";
 import { validateTokenAddress, buildTokenObject, fetchSwapQuote, executeSwap } from "../utils/swap";
@@ -218,9 +217,7 @@ const buyTokenAction = createAction({
         } else if (isBuySolana && buyTokenMint) {
           // Auto-fetch from Solana chain
           const rpcUrl = resolveSolanaRpcUrl(buySwapperChainId);
-          const connection = new Connection(rpcUrl, "confirmed");
-          const mintInfo = await getMint(connection, new PublicKey(buyTokenMint), "confirmed");
-          decimals = mintInfo.decimals;
+          decimals = await getMintDecimals(new Connection(rpcUrl, "confirmed"), new PublicKey(buyTokenMint));
         } else if (!isBuySolana) {
           throw new Error("buyTokenDecimals is required for EVM tokens when amountUnit is 'ui' and exactOut is true");
         } else {
@@ -234,9 +231,7 @@ const buyTokenAction = createAction({
           decimals = params.sellTokenDecimals;
         } else if (isSellSolana && sellTokenMint) {
           const rpcUrl = resolveSolanaRpcUrl(sellSwapperChainId);
-          const connection = new Connection(rpcUrl, "confirmed");
-          const mintInfo = await getMint(connection, new PublicKey(sellTokenMint), "confirmed");
-          decimals = mintInfo.decimals;
+          decimals = await getMintDecimals(new Connection(rpcUrl, "confirmed"), new PublicKey(sellTokenMint));
         } else if (!isSellSolana) {
           throw new Error("sellTokenDecimals is required for EVM tokens when amountUnit is 'ui'");
         } else {

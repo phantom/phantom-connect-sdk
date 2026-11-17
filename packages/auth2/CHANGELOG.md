@@ -1,5 +1,11 @@
 # @phantom/auth2
 
+## 2.0.4
+
+### Patch Changes
+
+- c8d8d0a: Send the SDK client headers with agent-wallet provisioning calls, so device-code login no longer fails with `KMS HTTP 403` from cloud and datacenter networks. KMS errors now also show the block `id` and `cf-ray` when Cloudflare rejects a request.
+
 ## 2.0.3
 
 ### Patch Changes

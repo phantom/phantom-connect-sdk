@@ -1,5 +1,22 @@
 # @phantom/cli
 
+## 3.0.1
+
+### Patch Changes
+
+- c8d8d0a: Send the SDK client headers with agent-wallet provisioning calls, so device-code login no longer fails with `KMS HTTP 403` from cloud and datacenter networks. KMS errors now also show the block `id` and `cf-ray` when Cloudflare rejects a request.
+- 1f3a286: Identify RPC requests to Phantom's node-proxy service as SDK traffic to prevent client-policy HTTP 403 errors.
+- 95e5971: Validate simulation parameters for each chain before sending requests, including the required Solana signing method. Expose concrete transaction and message parameter schemas to MCP clients.
+- 3f04652: Return text-mode login approval prompts immediately while authentication continues
+  in the MCP server. Repeated text login calls report the same attempt's progress, and
+  a denied or expired attempt is reported once before the next call starts over. Login
+  results carry a `status` of `pending` (with `prompt`) or `authenticated`. Only one
+  login now runs at a time: later callers join the one awaiting approval, and a logout
+  or a fresh browser login cancels it.
+- eb67fbd: `buy_token` now resolves decimals for Token-2022 mints (such as CASH) when `amountUnit` is `ui`, and mint lookup failures return a descriptive error instead of an empty message.
+- Updated dependencies [c8d8d0a]
+  - @phantom/auth2@2.0.4
+
 ## 3.0.0
 
 ### Major Changes

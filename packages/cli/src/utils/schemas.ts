@@ -236,3 +236,50 @@ export const PositiveNumericStringSchema = z.string().refine(
     message: "Must be a positive number string (e.g. '100' or '10.5')",
   },
 );
+
+// ─── Bytes ───────────────────────────────────────────────────────────────────
+
+export const ByteSchema = z.number().int().min(0).max(255);
+export const BytesSchema = z
+  .union([z.string().regex(/^(?:0[xX])?(?:[0-9a-fA-F]{2})*$/), z.array(ByteSchema)])
+  .describe("Bytes as an even-length hexadecimal string or byte array.");
+
+// ─── EVM Transaction Values ──────────────────────────────────────────────────
+
+const MAX_U256 = (1n << 256n) - 1n;
+
+function isU256(value: string) {
+  try {
+    const digits = value.replace(/_/g, "");
+    // Empty strings must not silently become zero.
+    if (!digits) {
+      return false;
+    }
+    const integer = BigInt(digits);
+    return integer >= 0n && integer <= MAX_U256;
+  } catch {
+    return false;
+  }
+}
+
+const U256StringSchema = z
+  .string()
+  .regex(/^(?:0x[0-9a-fA-F_]+|[0-9_]+)$/)
+  .refine(isU256, "Must fit in an unsigned 256-bit integer.");
+export const U256Schema = z
+  .union([U256StringSchema, z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)])
+  .describe(
+    "Unsigned 256-bit integer as a decimal/0x string or safe JSON integer. Strings may contain underscores and must include a digit. Use strings for larger integers.",
+  );
+
+export const AuthorizationU256Schema = z
+  .union([
+    U256Schema,
+    z
+      .string()
+      .regex(/^0X[0-9a-fA-F_]+$/)
+      .refine(isU256, "Must fit in an unsigned 256-bit integer."),
+  ])
+  .describe(
+    "Unsigned 256-bit integer as a decimal/hexadecimal string or safe JSON integer. Strings may contain underscores and must include a digit.",
+  );

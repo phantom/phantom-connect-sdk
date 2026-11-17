@@ -9,8 +9,9 @@ jest.mock("@solana/web3.js", () => ({
   }),
 }));
 
-jest.mock("@solana/spl-token", () => ({
-  getMint: jest.fn().mockResolvedValue({ decimals: 6 }),
+jest.mock("../utils/solana", () => ({
+  ...jest.requireActual("../utils/solana"),
+  getMintDecimals: jest.fn().mockResolvedValue(6),
 }));
 
 jest.mock("bs58", () => ({

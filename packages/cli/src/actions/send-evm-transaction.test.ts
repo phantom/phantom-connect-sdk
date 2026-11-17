@@ -118,10 +118,15 @@ describe("send_evm_transaction", () => {
     );
   });
 
-  it("simulates explicitly typed EIP-1559 transactions with caller-provided fee fields", async () => {
-    const { estimateGas, fetchGasPrice } = jest.requireMock("../utils/evm");
+  it("previews EIP-1559 transactions using the supported simulation fields", async () => {
+    const { estimateGas, fetchGasPrice, getEthereumAddress } = jest.requireMock("../utils/evm");
     const { runSimulation } = jest.requireMock("../utils/simulation");
-    const ctx = makeContext();
+    runSimulation.mockImplementationOnce(jest.requireActual("../utils/simulation").runSimulation);
+    getEthereumAddress.mockResolvedValueOnce(EVM_TX_TO);
+    const ctx = {
+      ...makeContext(),
+      apiClient: { post: jest.fn().mockResolvedValue({ type: "transaction", expectedChanges: [], warnings: [] }) },
+    };
 
     await sendEvmTransactionTool.handler(
       {
@@ -142,11 +147,9 @@ describe("send_evm_transaction", () => {
         params: {
           transactions: [
             expect.objectContaining({
-              from: "0xWalletAddr",
+              from: EVM_TX_TO,
               to: EVM_TX_TO,
               gas: "0xC350",
-              maxFeePerGas: "0x6FC23AC00",
-              maxPriorityFeePerGas: "0x77359400",
               chainId: "0x1",
               type: "0x3",
             }),
@@ -154,6 +157,11 @@ describe("send_evm_transaction", () => {
         },
       }),
       ctx,
+    );
+    const [request] = runSimulation.mock.calls[0];
+    expect(ctx.apiClient.post).toHaveBeenCalledWith(
+      "/simulation/v1?language=en",
+      expect.objectContaining({ params: request.params }),
     );
   });
 
@@ -267,6 +275,7 @@ describe("send_evm_transaction", () => {
 
   it("should skip gasPrice fetch when maxFeePerGas is provided", async () => {
     const { fetchGasPrice } = jest.requireMock("../utils/evm");
+    const { parseToKmsTransaction } = jest.requireMock("@phantom/parsers");
     const ctx = makeContext();
     await sendEvmTransactionTool.handler(
       {
@@ -279,6 +288,10 @@ describe("send_evm_transaction", () => {
       ctx as any,
     );
     expect(fetchGasPrice).not.toHaveBeenCalled();
+    expect(parseToKmsTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ maxFeePerGas: "0x6FC23AC00", maxPriorityFeePerGas: "0x77359400" }),
+      expect.any(String),
+    );
   });
 
   it("should return null hash when not present in response", async () => {
