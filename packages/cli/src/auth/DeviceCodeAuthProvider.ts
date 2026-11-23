@@ -1,6 +1,5 @@
 /* eslint-disable security/detect-non-literal-fs-filename */
 
-import { execFile } from "child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 import * as fs from "fs";
 import * as os from "os";
@@ -17,6 +16,7 @@ import {
 } from "@phantom/auth2";
 import { Logger } from "../utils/logger";
 import { DCRClient } from "./dcr";
+import { openBrowser } from "./open-browser";
 import type { DeviceCodeAuthDisplayOptions } from "./types";
 import type { DCRClientConfig } from "../session/types";
 
@@ -228,14 +228,7 @@ export class DeviceCodeAuthProvider {
     let browserOpened = false;
     if (displayOptions.openBrowser !== false) {
       try {
-        await new Promise<void>((resolve, reject) => {
-          if (process.platform === "win32") {
-            execFile("cmd", ["/c", "start", "", urlToOpen], err => (err ? reject(err) : resolve()));
-          } else {
-            const cmd = process.platform === "darwin" ? "open" : "xdg-open";
-            execFile(cmd, [urlToOpen], err => (err ? reject(err) : resolve()));
-          }
-        });
+        await openBrowser(urlToOpen);
         browserOpened = true;
         this.logger.info(`Browser opened for device authorization: ${urlToOpen}`);
       } catch (error) {

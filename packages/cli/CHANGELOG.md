@@ -1,5 +1,11 @@
 # @phantom/cli
 
+## 3.0.2
+
+### Patch Changes
+
+- 37742db: Preserve all authorization URL parameters when opening the browser on Windows for device login and SSO.
+
 ## 3.0.1
 
 ### Patch Changes

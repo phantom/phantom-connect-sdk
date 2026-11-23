@@ -1,5 +1,13 @@
 # @phantom/mcp-server
 
+## 1.2.11
+
+### Patch Changes
+
+- 37742db: Preserve all authorization URL parameters when opening the browser on Windows for device login and SSO.
+- Updated dependencies [37742db]
+  - @phantom/cli@3.0.2
+
 ## 1.2.10
 
 ### Patch Changes
