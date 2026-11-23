@@ -1,4 +1,4 @@
-import { type NetworkId, type SdkAnalyticsHeaders } from "@phantom/constants";
+import { type BitcoinDerivation, type NetworkId, type SdkAnalyticsHeaders } from "@phantom/constants";
 import type { Algorithm } from "@phantom/sdk-types";
 
 import type { Logger } from "@phantom/utils";
@@ -32,6 +32,7 @@ export interface CreateWalletResult {
 // Transaction is an encoded string:
 // - Solana: base64url encoded
 // - Ethereum: RLP-encoded hex string
+// - Bitcoin: base64url encoded PSBT
 // - Other chains: base64url encoded
 export type Transaction = string;
 
@@ -89,6 +90,7 @@ export interface SignTransactionParams {
   transaction: Transaction; // base64url encoded transaction
   networkId: NetworkId;
   derivationIndex?: number; // Optional account derivation index (defaults to 0)
+  bitcoinDerivation?: BitcoinDerivation;
   account?: string; // Optional specific account address to use
   presignTransaction?: (transaction: string, context: PresignTransactionContext) => Promise<string>;
 }

@@ -1,6 +1,6 @@
 {
   "name": "@phantom/auth2",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "Shared core utilities for the Auth2 OAuth2 PKCE flow",
   "repository": {
     "type": "git",
@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@phantom/base64url": "workspace:^",
+    "@phantom/constants": "workspace:^",
     "@phantom/crypto": "workspace:^",
     "@phantom/openapi-wallet-service": "0.1.11",
     "@phantom/sdk-types": "workspace:^",

@@ -8,6 +8,7 @@
  * string (e.g. for JSON Schema generation) should use the non-transform variants.
  */
 
+import { DAPP_WALLET_DERIVATION_INDEX } from "@phantom/constants";
 import { z } from "incur";
 import { getAddress } from "viem";
 import { PublicKey } from "@solana/web3.js";
@@ -22,9 +23,12 @@ import { PublicKey } from "@solana/web3.js";
  * @example
  *   derivationIndex: DerivationIndexSchema.describe("Optional derivation index (default: 0)"),
  */
-export const DerivationIndexSchema = z.coerce.number().int().min(0).default(0).refine(Number.isSafeInteger, {
-  message: "derivationIndex must be a safe integer",
-});
+export const DerivationIndexSchema = z.coerce
+  .number()
+  .int()
+  .min(0)
+  .default(DAPP_WALLET_DERIVATION_INDEX)
+  .refine(Number.isSafeInteger, { message: "derivationIndex must be a safe integer" });
 
 /**
  * Optional wallet ID override.

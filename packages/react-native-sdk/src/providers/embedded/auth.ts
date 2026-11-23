@@ -1,7 +1,7 @@
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 import type { AuthProvider, AuthResult, PhantomConnectOptions } from "@phantom/embedded-provider-core";
-import { DEFAULT_AUTH_URL } from "@phantom/constants";
+import { DAPP_WALLET_DERIVATION_INDEX, DEFAULT_AUTH_URL } from "@phantom/constants";
 
 declare const __SDK_VERSION__: string;
 
@@ -107,7 +107,9 @@ export class ExpoAuthProvider implements AuthProvider {
           walletId,
           organizationId,
           provider: provider || undefined,
-          accountDerivationIndex: accountDerivationIndex ? parseInt(accountDerivationIndex) : 0,
+          accountDerivationIndex: accountDerivationIndex
+            ? parseInt(accountDerivationIndex)
+            : DAPP_WALLET_DERIVATION_INDEX,
           expiresInMs: expiresInMs ? parseInt(expiresInMs) : 0,
           authUserId: authUserId || undefined,
         };

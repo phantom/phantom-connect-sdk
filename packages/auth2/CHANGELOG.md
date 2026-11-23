@@ -1,5 +1,17 @@
 # @phantom/auth2
 
+## 2.0.5
+
+### Patch Changes
+
+- bb264f3: Use the same BIP84 Native SegWit receiving address as Phantom Wallet for wallet creation and default address lookups. The default Bitcoin address changes; funds sent to the previous address do not move automatically.
+- Updated dependencies [bb264f3]
+- Updated dependencies [1f44796]
+  - @phantom/constants@2.0.5
+  - @phantom/base64url@2.0.5
+  - @phantom/sdk-types@2.0.5
+  - @phantom/crypto@2.0.5
+
 ## 2.0.4
 
 ### Patch Changes

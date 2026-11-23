@@ -5,6 +5,7 @@ const makeContext = (overrides: Record<string, unknown> = {}) => {
     getWalletAddresses: jest.fn().mockResolvedValue([
       { addressType: "solana", address: "So1anaAddress" },
       { addressType: "ethereum", address: "0xabc" },
+      { addressType: "bitcoinSegwit", address: "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu" },
     ]),
     ...overrides,
   };
@@ -27,12 +28,14 @@ describe("get_wallet_addresses", () => {
     const result = await getWalletAddressesTool.handler({}, ctx as any);
 
     expect(ctx.client.getWalletAddresses).toHaveBeenCalledWith("wallet-1", undefined, 0);
+    expect(ctx.client.getWalletAddresses).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
       walletId: "wallet-1",
       organizationId: "org-1",
       addresses: [
         { addressType: "solana", address: "So1anaAddress" },
         { addressType: "ethereum", address: "0xabc" },
+        { addressType: "bitcoinSegwit", address: "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu" },
       ],
     });
   });

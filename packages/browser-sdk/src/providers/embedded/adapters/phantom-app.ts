@@ -1,5 +1,6 @@
 import type { PhantomAppProvider, PhantomAppAuthOptions, AuthResult } from "@phantom/embedded-provider-core";
 import { isPhantomExtensionInstalled } from "@phantom/browser-injected-sdk";
+import { DAPP_WALLET_DERIVATION_INDEX } from "@phantom/constants";
 import { isPhantomLoginAvailable } from "../../../isPhantomLoginAvailable";
 
 /**
@@ -53,7 +54,7 @@ export class BrowserPhantomAppProvider implements PhantomAppProvider {
         walletId: result.walletId,
         organizationId: result.organizationId,
         provider: "phantom",
-        accountDerivationIndex: result.accountDerivationIndex ?? 0,
+        accountDerivationIndex: result.accountDerivationIndex ?? DAPP_WALLET_DERIVATION_INDEX,
         expiresInMs: result.expiresInMs ?? 0,
         authUserId: result.authUserId,
       };

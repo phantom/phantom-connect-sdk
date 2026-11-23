@@ -1,4 +1,5 @@
 import { base64urlEncode } from "@phantom/base64url";
+import { DAPP_WALLET_DERIVATION_INDEX, DerivationPath } from "@phantom/constants";
 import { sha256 } from "@phantom/crypto";
 import {
   DerivationInfoCurveEnum,
@@ -18,27 +19,26 @@ const DEFAULT_SCOPE = "openid offline_access";
 const DAPP_WALLET_DERIVATIONS: Array<DerivationInfoSchema> = [
   {
     curve: DerivationInfoCurveEnum.ed25519,
-    derivationPath: "m/44'/501'/0'/0'",
+    derivationPath: DerivationPath.Solana(DAPP_WALLET_DERIVATION_INDEX),
     addressFormat: DerivationInfoAddressFormatEnum.solana,
   },
   {
     curve: DerivationInfoCurveEnum.secp256k1,
-    derivationPath: "m/44'/60'/0'/0/0",
+    derivationPath: DerivationPath.Ethereum(DAPP_WALLET_DERIVATION_INDEX),
     addressFormat: DerivationInfoAddressFormatEnum.ethereum,
   },
   {
     curve: DerivationInfoCurveEnum.secp256k1,
-    derivationPath: "m/84'/0'/0'/0",
+    derivationPath: DerivationPath.Bitcoin(DAPP_WALLET_DERIVATION_INDEX),
     addressFormat: DerivationInfoAddressFormatEnum.bitcoinSegwit,
   },
   {
     curve: DerivationInfoCurveEnum.ed25519,
-    derivationPath: "m/44'/784'/0'/0'/0'",
+    derivationPath: DerivationPath.Sui(DAPP_WALLET_DERIVATION_INDEX),
     addressFormat: DerivationInfoAddressFormatEnum.sui,
   },
 ];
 const DAPP_WALLET_MNEMONIC_LENGTH = 24;
-const DAPP_WALLET_DERIVATION_INDEX = 0;
 
 const AGENT_WALLET_TAG = "agent";
 

@@ -96,6 +96,8 @@ export type PortfolioItem = z.infer<typeof PortfolioItemSchema>;
 
 const PortfolioResponseSchema = z.object({
   items: z.array(PortfolioItemSchema),
+  cursor: z.string().optional(),
+  errors: z.array(z.unknown()).optional(),
 });
 
 export type PortfolioResponse = z.infer<typeof PortfolioResponseSchema>;
@@ -104,12 +106,16 @@ export type PortfolioResponse = z.infer<typeof PortfolioResponseSchema>;
  * Fetches fungible token balances from the Phantom Portfolio API.
  * Shared by get_token_balances and portfolio_rebalance tools.
  */
-export async function fetchPortfolioBalances(context: ToolContext, networks: string[]): Promise<PortfolioResponse> {
+export async function fetchPortfolioBalances(
+  context: ToolContext,
+  networks: string[],
+  derivationIndex?: number,
+): Promise<PortfolioResponse> {
   const { logger, apiClient } = context;
   const client = context.manager.getClient();
   const session = context.manager.getSession();
 
-  const allAddresses = await client.getWalletAddresses(session.walletId);
+  const allAddresses = await client.getWalletAddresses(session.walletId, undefined, derivationIndex);
   const addressByType = Object.fromEntries(allAddresses.map(a => [a.addressType.toLowerCase(), a.address]));
 
   const caip19Addresses = buildCaip19Addresses(networks, addressByType);
@@ -127,7 +133,7 @@ export async function fetchPortfolioBalances(context: ToolContext, networks: str
   });
 
   logger.info("Successfully fetched token balances");
-  return result;
+  return { items: result.items };
 }
 
 const PortfolioBalanceQueryParamsSchema = z.object({

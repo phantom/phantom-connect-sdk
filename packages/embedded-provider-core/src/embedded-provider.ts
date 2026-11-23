@@ -6,7 +6,7 @@ import {
   isAuthenticationError,
   normalizeEvmTransactionForNetwork,
 } from "@phantom/client";
-import type { NetworkId } from "@phantom/constants";
+import { DAPP_WALLET_DERIVATION_INDEX, type NetworkId } from "@phantom/constants";
 import {
   parseSignMessageResponse,
   parseTransactionResponse,
@@ -223,7 +223,7 @@ export class EmbeddedProvider {
   private async getAndFilterWalletAddresses(walletId: string): Promise<WalletAddress[]> {
     // Get session to access derivation index
     const session = await this.storage.getSession();
-    const derivationIndex = session?.accountDerivationIndex ?? 0;
+    const derivationIndex = session?.accountDerivationIndex ?? DAPP_WALLET_DERIVATION_INDEX;
 
     // Get wallet addresses with retry and auto-disconnect on failure
     const addresses = await retryWithBackoff(
@@ -780,7 +780,7 @@ export class EmbeddedProvider {
 
     // Get session to access derivation index
     const session = await this.storage.getSession();
-    const derivationIndex = session?.accountDerivationIndex ?? 0;
+    const derivationIndex = session?.accountDerivationIndex ?? DAPP_WALLET_DERIVATION_INDEX;
 
     const rawResponse = await this.client
       .signUtf8Message({
@@ -822,7 +822,7 @@ export class EmbeddedProvider {
 
     // Get session to access derivation index
     const session = await this.storage.getSession();
-    const derivationIndex = session?.accountDerivationIndex ?? 0;
+    const derivationIndex = session?.accountDerivationIndex ?? DAPP_WALLET_DERIVATION_INDEX;
 
     // Get raw response from client - use the appropriate method based on chain
     const rawResponse = await this.client
@@ -858,7 +858,7 @@ export class EmbeddedProvider {
 
     // Get session to access derivation index
     const session = await this.storage.getSession();
-    const derivationIndex = session?.accountDerivationIndex ?? 0;
+    const derivationIndex = session?.accountDerivationIndex ?? DAPP_WALLET_DERIVATION_INDEX;
 
     // Call the client's ethereumSignTypedData method
     const rawResponse = await this.client
@@ -899,7 +899,7 @@ export class EmbeddedProvider {
 
     // Get session to access derivation index
     const session = await this.storage.getSession();
-    const derivationIndex = session?.accountDerivationIndex ?? 0;
+    const derivationIndex = session?.accountDerivationIndex ?? DAPP_WALLET_DERIVATION_INDEX;
 
     this.logger.debug("EMBEDDED_PROVIDER", "Parsed transaction for signing", {
       walletId: this.walletId,
@@ -960,7 +960,7 @@ export class EmbeddedProvider {
 
     // Get session to access derivation index
     const session = await this.storage.getSession();
-    const derivationIndex = session?.accountDerivationIndex ?? 0;
+    const derivationIndex = session?.accountDerivationIndex ?? DAPP_WALLET_DERIVATION_INDEX;
 
     this.logger.debug("EMBEDDED_PROVIDER", "Parsed transaction for signing", {
       walletId: this.walletId,
@@ -1070,7 +1070,7 @@ export class EmbeddedProvider {
         appId: this.config.appId,
         stamperInfo,
         authProvider: "device", // For now app wallets have no auth provider.
-        accountDerivationIndex: 0, // App wallets default to index 0
+        accountDerivationIndex: DAPP_WALLET_DERIVATION_INDEX,
         status: "completed" as const,
         createdAt: now,
         lastUsed: now,

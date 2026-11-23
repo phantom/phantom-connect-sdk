@@ -8,6 +8,7 @@ import { getWalletAddressesTool } from "../actions/get-wallet-addresses";
 import { getConnectionStatusTool } from "../actions/get-connection-status";
 import { getTokenBalancesTool } from "../actions/get-token-balances";
 import { transferTokensTool } from "../actions/transfer-tokens";
+import { recoverBitcoinTool } from "../actions/recover-bitcoin";
 import { buyTokenTool } from "../actions/buy-token";
 import { loginTool } from "../actions/login";
 import { logoutTool } from "../actions/logout";
@@ -49,6 +50,7 @@ export const tools: ToolHandler[] = [
   getTokenBalancesTool,
   getTokenPriceTool,
   simulateTransactionTool,
+  recoverBitcoinTool,
   // Solana tools
   sendSolanaTransactionTool,
   signSolanaMessageTool,

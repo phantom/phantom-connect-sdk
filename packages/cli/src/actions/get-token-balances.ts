@@ -6,8 +6,17 @@
 import { Cli, z } from "incur";
 import { createAction } from "../utils/actions";
 import { ALL_NETWORKS, resolveNetworks, fetchPortfolioBalances } from "../utils/portfolio";
+import { fetchLegacySdkBitcoinBalance } from "../utils/recover-bitcoin";
+import { DerivationIndexSchema } from "../utils/schemas";
+
+const BITCOIN_RECOVERY_NOTICE =
+  "Move BTC from your legacy SDK address to your standard BIP84 address so it appears in the Phantom app. " +
+  "Both addresses are Native SegWit. The legacy address can still receive BTC, but its balance won't appear in the synced wallet. " +
+  "Use your BIP84 address for new deposits. You can leave the funds where they are or preview a recovery transfer " +
+  "with `phantom bitcoin recover` or the Bitcoin recovery tool. Nothing moves until you confirm the preview.";
 
 const GetTokenBalancesSchema = z.object({
+  derivationIndex: DerivationIndexSchema.describe("Optional derivation index for the wallet balances (default: 0)"),
   networks: z
     .array(z.enum(ALL_NETWORKS as [string, ...string[]]))
     .optional()
@@ -19,6 +28,12 @@ const GetTokenBalancesSchema = z.object({
 });
 
 const TokenBalanceSchema = z.object({
+  legacySdkBitcoinBalance: z
+    .discriminatedUnion("status", [
+      z.object({ status: z.literal("checked"), satoshis: z.string(), recoveryNotice: z.string().optional() }),
+      z.object({ status: z.literal("unavailable") }),
+    ])
+    .optional(),
   items: z.array(
     z.object({
       name: z.string(),
@@ -53,6 +68,11 @@ const getTokenBalancesAction = createAction({
     "Use the `networks` parameter to filter by chain — omit it to fetch all chains at once. " +
     'Examples: pass ["base"] when user asks about Base tokens; ["solana"] for Solana only; omit for all. ' +
     "Use this to check if the user has enough funds before a transfer or swap. " +
+    "When Bitcoin is requested, legacySdkBitcoinBalance reports BTC held at the legacy SDK address separately, in satoshis. " +
+    "It is not included in items or available to spend through this tool. Recommend the BIP84 address for deposits. " +
+    "If legacySdkBitcoinBalance.recoveryNotice is present, show it to the user even if the BIP84 balance is zero. " +
+    "Offer a recovery preview only if the user wants one; do not initiate a transfer. " +
+    "If legacySdkBitcoinBalance.status is 'unavailable', the legacy balance is unknown, not zero. " +
     "This does not include Hyperliquid perpetuals account balances; if the user asks for Hyperliquid/perps funds or total exposure, also call get_perp_account. " +
     "Response: {items: [{name, symbol, decimals, caip19, totalQuantity, totalQuantityString, spamStatus, logoUri, " +
     "price?: {price, priceChange24h}, queriedWalletBalances: [{address, quantity, quantityString}]}]}. " +
@@ -70,9 +90,27 @@ const getTokenBalancesAction = createAction({
       openWorldHint: true,
     },
   },
-  run: async ({ options: params, var: context }) => {
+  run: async ({ options: params, var: context }): Promise<z.output<typeof TokenBalanceSchema>> => {
     const requestedNetworks = resolveNetworks(params.networks);
-    return fetchPortfolioBalances(context, requestedNetworks);
+    const { items } = await fetchPortfolioBalances(context, requestedNetworks, params.derivationIndex);
+    if (!requestedNetworks.includes("bitcoin")) {
+      return { items };
+    }
+
+    try {
+      const satoshis = await fetchLegacySdkBitcoinBalance(context, params.derivationIndex);
+      return {
+        items,
+        legacySdkBitcoinBalance: {
+          status: "checked",
+          satoshis,
+          ...(satoshis !== "0" && { recoveryNotice: BITCOIN_RECOVERY_NOTICE }),
+        },
+      };
+    } catch {
+      context.logger.warn("Unable to check Bitcoin legacy SDK balance");
+      return { items, legacySdkBitcoinBalance: { status: "unavailable" } };
+    }
   },
 });
 

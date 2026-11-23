@@ -66,6 +66,19 @@ phantom evm sign-typed   # Sign EVM typed data (EIP-712)
 phantom evm allowance    # Get ERC-20 token allowance for a spender
 ```
 
+### Bitcoin
+
+```bash
+phantom bitcoin recover                         # Preview recovery to the BIP84 address
+phantom bitcoin recover --confirmed --quote-id "$QUOTE_ID"
+```
+
+Review the sender, recipient, fee, amount, and warnings before confirming. Repeat the same command and options with `--confirmed --quote-id` and the quote ID from the preview. Quotes expire after five minutes; if the transaction or warnings change, request a new preview. `submitted` means broadcast was acknowledged, not that the transfer has confirmed on-chain.
+
+Both addresses are Native SegWit (`bc1q`). The standard BIP84 receiving path is `m/84'/0'/0'/0/<address_index>`; `legacy` refers to the earlier SDK path `m/84'/0'/<account_index>'/0`, which omits the final address index. It does not mean a legacy Bitcoin address format.
+
+Use `recover` only to move spendable BTC from the legacy SDK address to the same wallet’s BIP84 address, not for ordinary sends. It refuses to sweep addresses with protected outputs, and uneconomical outputs may remain. You can leave BTC at the legacy address, but it won’t appear in the synced Phantom wallet. Use the BIP84 address for new deposits.
+
 ### Tokens & Swaps
 
 ```bash
@@ -114,6 +127,7 @@ When running as an MCP server (`phantom --mcp`), all commands are exposed as MCP
 | `evm_sign`                       | Sign an EVM personal message                        |
 | `evm_sign-typed`                 | Sign EVM typed data                                 |
 | `evm_allowance`                  | Get ERC-20 allowance                                |
+| `bitcoin_recover`                | Preview or confirm recovery to the synced address   |
 | `transfer`                       | Transfer tokens                                     |
 | `buy`                            | Buy/swap tokens                                     |
 | `simulate`                       | Simulate a transaction                              |

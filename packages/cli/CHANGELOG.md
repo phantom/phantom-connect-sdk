@@ -1,5 +1,23 @@
 # @phantom/cli
 
+## 3.0.3
+
+### Patch Changes
+
+- bb264f3: Use the same BIP84 Native SegWit receiving address as Phantom Wallet for wallet creation and default address lookups. The default Bitcoin address changes; funds sent to the previous address do not move automatically.
+- 1f44796: Report balances at the earlier SDK Bitcoin address separately from the default BIP84 balance. Use `phantom bitcoin recover` or the Bitcoin recovery tool to preview and confirm a transfer of spendable BTC to the same wallet's BIP84 address. Use the BIP84 address for new deposits.
+- Updated dependencies [bb264f3]
+- Updated dependencies [1f44796]
+  - @phantom/auth2@2.0.5
+  - @phantom/client@2.0.5
+  - @phantom/constants@2.0.5
+  - @phantom/base64url@2.0.5
+  - @phantom/sdk-types@2.0.5
+  - @phantom/parsers@2.0.5
+  - @phantom/crypto@2.0.5
+  - @phantom/api-key-stamper@2.0.5
+  - @phantom/utils@2.0.5
+
 ## 3.0.2
 
 ### Patch Changes

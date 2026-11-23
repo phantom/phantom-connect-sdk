@@ -1071,7 +1071,7 @@ describe("_getOrCreateAppWallet()", () => {
     });
 
     const call = kms.getOrCreateWalletWithTag.mock.calls[0][0] as {
-      accounts: Array<{ addressFormat: string }>;
+      accounts: Array<{ addressFormat: string; derivationPath: string }>;
       mnemonicLength: number;
     };
     expect(call.accounts).toHaveLength(4);
@@ -1080,6 +1080,12 @@ describe("_getOrCreateAppWallet()", () => {
     expect(formats).toContain(DerivationInfoAddressFormatEnum.ethereum);
     expect(formats).toContain(DerivationInfoAddressFormatEnum.bitcoinSegwit);
     expect(formats).toContain(DerivationInfoAddressFormatEnum.sui);
+    expect(call.accounts).toContainEqual(
+      expect.objectContaining({
+        addressFormat: DerivationInfoAddressFormatEnum.bitcoinSegwit,
+        derivationPath: "m/84'/0'/0'/0/0",
+      }),
+    );
   });
 
   it("uses mnemonicLength of 24", async () => {
@@ -1157,6 +1163,12 @@ describe("_getOrCreateAgentWallet()", () => {
         organizationId: "org-abc",
         walletName: "Agent Wallet",
         tags: ["client-uuid", "agent"],
+        accounts: expect.arrayContaining([
+          expect.objectContaining({
+            addressFormat: DerivationInfoAddressFormatEnum.bitcoinSegwit,
+            derivationPath: "m/84'/0'/0'/0/0",
+          }),
+        ]),
       }),
     );
   });

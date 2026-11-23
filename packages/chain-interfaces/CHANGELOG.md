@@ -1,5 +1,15 @@
 # @phantom/chain-interfaces
 
+## 2.0.5
+
+### Patch Changes
+
+- Updated dependencies [bb264f3]
+- Updated dependencies [1f44796]
+  - @phantom/constants@2.0.5
+  - @phantom/sdk-types@2.0.5
+  - @phantom/parsers@2.0.5
+
 ## 2.0.4
 
 ### Patch Changes

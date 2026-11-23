@@ -1,6 +1,6 @@
 {
   "name": "@phantom/server-sdk",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "Server SDK for Phantom Wallet",
   "repository": {
     "type": "git",

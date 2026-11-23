@@ -19,11 +19,13 @@ import { varsSchema } from "./vars";
 import type { BaseSessionData, ISessionManager } from "./session/types";
 import { tools } from "./tools/index";
 import { logoutCommand } from "./actions/logout";
+import { bitcoinRecoveryCli } from "./commands/bitcoin";
 
 const COMMANDS = [
   walletCli,
   solanaCli,
   evmCli,
+  bitcoinRecoveryCli,
   transferCommand,
   buyCommand,
   simulateCommand,

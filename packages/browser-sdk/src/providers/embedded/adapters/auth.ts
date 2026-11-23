@@ -6,7 +6,7 @@ import type {
   URLParamsAccessor,
 } from "@phantom/embedded-provider-core";
 import { debug, DebugCategory } from "../../../debug";
-import { DEFAULT_AUTH_URL, DEFAULT_AUTHENTICATOR_ALGORITHM } from "@phantom/constants";
+import { DAPP_WALLET_DERIVATION_INDEX, DEFAULT_AUTH_URL, DEFAULT_AUTHENTICATOR_ALGORITHM } from "@phantom/constants";
 import { detectBrowser } from "../../../utils/browser-detection";
 
 declare const __SDK_VERSION__: string;
@@ -196,7 +196,9 @@ export class BrowserAuthProvider implements AuthProvider {
       return Promise.resolve({
         walletId,
         organizationId,
-        accountDerivationIndex: accountDerivationIndex ? parseInt(accountDerivationIndex) : 0,
+        accountDerivationIndex: accountDerivationIndex
+          ? parseInt(accountDerivationIndex)
+          : DAPP_WALLET_DERIVATION_INDEX,
         expiresInMs: expiresInMs ? parseInt(expiresInMs) : 0,
         authUserId: authUserId || undefined,
         provider,

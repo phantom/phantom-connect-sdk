@@ -1,3 +1,4 @@
+import { BITCOIN_DERIVATIONS, DAPP_WALLET_DERIVATION_INDEX, DerivationPath } from "@phantom/constants";
 import {
   AddUserToOrganizationMethodEnum,
   Configuration,
@@ -41,7 +42,7 @@ import {
 import axios, { type AxiosResponse, isAxiosError, type AxiosInstance } from "axios";
 import { Buffer } from "buffer";
 import { deriveSubmissionConfig } from "./caip2-mappings";
-import { DerivationPath, getNetworkConfig } from "./constants";
+import { getNetworkConfig } from "./constants";
 import { normalizeEvmTransactionForNetwork } from "./evm-transaction";
 import {
   type PrepareResponse,
@@ -368,7 +369,7 @@ export class PhantomClient {
     const walletId = params.walletId;
     const encodedTransaction = params.transaction;
     const networkIdParam = params.networkId;
-    const derivationIndex = params.derivationIndex ?? 0;
+    const derivationIndex = params.derivationIndex ?? DAPP_WALLET_DERIVATION_INDEX;
     const methodName = this.getRpcMethodName(networkIdParam, includeSubmissionConfig);
 
     try {
@@ -383,6 +384,19 @@ export class PhantomClient {
         throw new Error(`SubmissionConfig could not be derived for network ID: ${networkIdParam}`);
       }
 
+      const isBitcoin = submissionConfig.chain === "bitcoin";
+      if (params.bitcoinDerivation !== undefined) {
+        if (!isBitcoin) {
+          throw new Error("bitcoinDerivation is only supported for Bitcoin");
+        }
+        if (!BITCOIN_DERIVATIONS.includes(params.bitcoinDerivation)) {
+          throw new Error("Unsupported Bitcoin derivation");
+        }
+      }
+      if (isBitcoin && includeSubmissionConfig) {
+        throw new Error("Bitcoin PSBTs must be signed before broadcasting separately");
+      }
+
       const networkConfig = getNetworkConfig(networkIdParam, derivationIndex);
 
       if (!networkConfig) {
@@ -390,7 +404,10 @@ export class PhantomClient {
       }
 
       const derivationInfo: DerivationInfo = {
-        derivationPath: networkConfig.derivationPath,
+        derivationPath:
+          params.bitcoinDerivation === "legacy"
+            ? DerivationPath.BitcoinLegacy(derivationIndex)
+            : networkConfig.derivationPath,
         curve: networkConfig.curve,
         addressFormat: networkConfig.addressFormat,
       };
@@ -423,7 +440,7 @@ export class PhantomClient {
       } = {
         organizationId: this.config.organizationId,
         walletId: walletId,
-        transaction: transactionForSigning,
+        transaction: isBitcoin ? { kind: "PSBT", bytes: transactionForSigning } : transactionForSigning,
         derivationInfo: derivationInfo,
       } as any;
 
@@ -485,8 +502,12 @@ export class PhantomClient {
         }
       }
 
+      const signedTransaction = result.transaction;
       return {
-        signedTransaction: result.transaction as unknown as string, // Base64 encoded signed transaction
+        signedTransaction:
+          isBitcoin && Array.isArray(signedTransaction)
+            ? Buffer.from(signedTransaction).toString("base64url")
+            : (signedTransaction as unknown as string),
         hash,
       };
     } catch (error: unknown) {
@@ -535,7 +556,7 @@ export class PhantomClient {
     derivationIndex?: number,
   ): Promise<{ addressType: AddressType; address: string }[]> {
     try {
-      const accountIndex = derivationIndex ?? 0;
+      const accountIndex = derivationIndex ?? DAPP_WALLET_DERIVATION_INDEX;
       const paths = derivationPaths || [
         DerivationPath.Solana(accountIndex),
         DerivationPath.Ethereum(accountIndex),
@@ -578,7 +599,7 @@ export class PhantomClient {
     const walletId = params.walletId;
     const messageParam = params.message;
     const networkIdParam = params.networkId;
-    const derivationIndex = params.derivationIndex ?? 0;
+    const derivationIndex = params.derivationIndex ?? DAPP_WALLET_DERIVATION_INDEX;
 
     try {
       if (!this.config.organizationId) {
@@ -632,7 +653,7 @@ export class PhantomClient {
     const walletId = params.walletId;
     const messageParam = params.message;
     const networkIdParam = params.networkId;
-    const derivationIndex = params.derivationIndex ?? 0;
+    const derivationIndex = params.derivationIndex ?? DAPP_WALLET_DERIVATION_INDEX;
 
     try {
       if (!this.config.organizationId) {
@@ -683,7 +704,7 @@ export class PhantomClient {
     const walletId = params.walletId;
     const typedData = params.typedData;
     const networkIdParam = params.networkId;
-    const derivationIndex = params.derivationIndex ?? 0;
+    const derivationIndex = params.derivationIndex ?? DAPP_WALLET_DERIVATION_INDEX;
 
     try {
       if (!this.config.organizationId) {

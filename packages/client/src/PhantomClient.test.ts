@@ -15,6 +15,77 @@ const unsignedEvmTransaction = Transaction.from({
   value: 1,
 }).unsignedSerialized;
 
+describe("getWalletAddresses", () => {
+  it.each([
+    [undefined, "m/84'/0'/0'/0/0"],
+    [1, "m/84'/0'/0'/0/1"],
+  ])("requests the Native SegWit receiving path for derivation index %s", async (derivationIndex, expectedPath) => {
+    (axios.create as jest.Mock).mockReturnValue({
+      interceptors: { request: { use: jest.fn() }, response: { use: jest.fn() } },
+    });
+    const client = new PhantomClient({ apiBaseUrl: "https://offline.invalid", organizationId: "test-org-id" });
+    const postKmsRpc = jest.fn().mockResolvedValue({ data: { result: [] } });
+    Object.defineProperty(client, "kmsApi", { value: { postKmsRpc } });
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(new Response("1789632000000"));
+
+    try {
+      await client.getWalletAddresses("wallet-1", undefined, derivationIndex);
+
+      expect(postKmsRpc).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "getAccounts",
+          params: expect.objectContaining({
+            walletId: "wallet-1",
+            accounts: expect.arrayContaining([expectedPath]),
+          }),
+        }),
+      );
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+});
+
+describe("Bitcoin PSBT signing", () => {
+  it.each([
+    ["legacy", "m/84'/0'/2'/0", [115, 105, 103, 110, 101, 100]],
+    ["bip84", "m/84'/0'/0'/0/2", "c2lnbmVk"],
+  ] as const)("signs the PSBT with the %s derivation", async (bitcoinDerivation, derivationPath, transaction) => {
+    (axios.create as jest.Mock).mockReturnValue({
+      interceptors: { request: { use: jest.fn() }, response: { use: jest.fn() } },
+    });
+    const client = new PhantomClient({ apiBaseUrl: "https://offline.invalid", organizationId: "test-org-id" });
+    const postKmsRpc = jest.fn().mockResolvedValue({ data: { result: { kind: "BITCOIN", transaction } } });
+    Object.defineProperty(client, "kmsApi", { value: { postKmsRpc } });
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(new Response("1789632000000"));
+
+    try {
+      await expect(
+        client.signTransaction({
+          walletId: "wallet-1",
+          networkId: NetworkId.BITCOIN_MAINNET,
+          bitcoinDerivation,
+          derivationIndex: 2,
+          transaction: "unsigned-psbt",
+        }),
+      ).resolves.toEqual({ rawTransaction: "c2lnbmVk" });
+      expect(postKmsRpc).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: {
+            organizationId: "test-org-id",
+            walletId: "wallet-1",
+            transaction: { kind: "PSBT", bytes: "unsigned-psbt" },
+            derivationInfo: { derivationPath, curve: "Secp256k1", addressFormat: "BitcoinSegwit" },
+          },
+        }),
+        { headers: { "X-Rpc-Method": "signTransaction" } },
+      );
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+});
+
 describe("EVM submission network contracts", () => {
   it.each([
     [4663, NetworkId.ROBINHOOD_MAINNET, "robinhood", "mainnet"],

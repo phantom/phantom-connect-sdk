@@ -1,5 +1,6 @@
 export * from "./auth2";
 export * from "./authenticators";
+export * from "./derivation-path";
 export * from "./icons";
 export * from "./network-ids";
 export * from "./networks";

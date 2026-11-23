@@ -5546,6 +5546,7 @@ __metadata:
   resolution: "@phantom/auth2@workspace:packages/auth2"
   dependencies:
     "@phantom/base64url": "workspace:^"
+    "@phantom/constants": "workspace:^"
     "@phantom/crypto": "workspace:^"
     "@phantom/openapi-wallet-service": "npm:0.1.11"
     "@phantom/sdk-types": "workspace:^"
@@ -5697,6 +5698,7 @@ __metadata:
     "@types/node": "npm:^20.11.0"
     "@types/qrcode-terminal": "npm:^0.12.2"
     axios: "npm:1.15.2"
+    bitcoinjs-lib: "npm:^6.1.0"
     bs58: "npm:^6.0.0"
     eslint: "npm:10.2.1"
     incur: "npm:^0.4.10"
